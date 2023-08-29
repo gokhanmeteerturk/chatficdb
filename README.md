@@ -84,3 +84,8 @@ Start your FastAPI application using Docker Compose:
 sudo docker compose up -d --build
 ```
 With this setup, Nginx will act as a reverse proxy, forwarding requests to your FastAPI application served by Gunicorn on port 8000. This configuration allows you to take advantage of Nginx's performance and load balancing capabilities while serving your FastAPI application using Gunicorn.
+
+To update:
+```bash
+git pull && sudo docker stop chatficdb-app-1 && sudo docker compose up -d --build
+```
