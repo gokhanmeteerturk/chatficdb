@@ -56,15 +56,16 @@ def get_story_from_db(storyGlobalId):
             "title": item["title"],
             "description": item["description"],
             "author": item["author"],
-            "patreonusername": item["patreonusername"]
-                }
+            "patreonusername": item["patreonusername"],
+            "cdn":"https://chatficdottop.s3.us-east-2.amazonaws.com"
+            }
     else:
         raise HTTPException(status_code=404, detail="Story not found")
 
-@app.post("/story")
+@app.get("/story")
 def get_server(storyGlobalId: str):
     try:
         return get_story_from_db(storyGlobalId)
     except Exception as e:
         logging.error(e)
-        return {"isFound": False,"title": "","description": "","author": "","patreonusername": ""}
+        return {"isFound": False,"title": "","description": "","author": "","patreonusername": "", "cdn":""}
