@@ -121,21 +121,26 @@ async def show_submit_page():
                 align-items: center;
                 height: 100vh;
                 margin: 0;
-                background-color: #f9f9f9;
+                background-color: #2d2d2d;
             }
             #centered-div {
                 text-align: center;
                 padding: 20px;
-                border: 1px solid #ddd;
+                border: 1px solid #000;
                 border-radius: 5px;
-                background-color: #fff;
+                color:white !important;
+                background-color: #111;
             }
         </style>
     </head>
     <body>
         <div id="centered-div">
-            <h1>Centered Div</h1>
-            <p>This div is centered both vertically and horizontally.</p>
+            <h1>How to create</h1>
+            <p>Chatfics generally get created using the chatfic-format. It is possible to create one without any tools. But using an editor is much easier.<br><br>You can use editor.chatficlab.com to create your own chatfic. No prior experience required.</p>
+            <hr>
+            <h1>Submit Your Chatfic Story</h1>
+            <p>You can submit your chatfic as a .zip archive as suggested by the chatfic-format (Our online editor creates this automatically).<br><br>Once ready, upload your file to any popular file sharing platform(Wetransfer, Google Drive, Dropbox etc) and send us the link using below button.</p>
+            <a href="https://forms.gle/scmCtU15PPNocE739" target="_blank"><button>Submit your chatfic</button></a>
         </div>
     </body>
     </html>
