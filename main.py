@@ -124,13 +124,31 @@ async def show_submit_page():
                 background-color: #2d2d2d;
             }
             #centered-div {
-                text-align: center;
+                text-align: left;
                 padding: 20px;
                 border: 1px solid #000;
                 border-radius: 5px;
                 color:white !important;
                 background-color: #111;
             }
+            .btn {
+                display: inline-block;
+                padding: 10px 20px;
+                font-size: 18px;
+                font-weight: 500;
+                text-align: center;
+                text-decoration: none;
+                border-radius: 4px;
+                background-color: #2196F3;
+                color: #fff;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            }
+
+            .btn:hover {
+                background-color: #1976D2;
+            }
+
         </style>
     </head>
     <body>
@@ -140,7 +158,7 @@ async def show_submit_page():
             <hr>
             <h1>Submit Your Chatfic Story</h1>
             <p>You can submit your chatfic as a .zip archive as suggested by the chatfic-format (Our online editor creates this automatically).<br><br>Once ready, upload your file to any popular file sharing platform(Wetransfer, Google Drive, Dropbox etc) and send us the link using below button.</p>
-            <a href="https://forms.gle/scmCtU15PPNocE739" target="_blank"><button>Submit your chatfic</button></a>
+            <a class="btn" href="https://forms.gle/scmCtU15PPNocE739" target="_blank">Submit your chatfic</a>
         </div>
     </body>
     </html>
