@@ -158,7 +158,7 @@ async def show_submit_page():
             <hr>
             <h1>Submit Your Chatfic Story</h1>
             <p>You can submit your chatfic as a .zip archive as suggested by the chatfic-format (Our online editor creates this automatically).<br><br>Once ready, upload your file to any popular file sharing platform(Wetransfer, Google Drive, Dropbox etc) and send us the link using below button.</p>
-            <a class="btn" href="https://forms.gle/scmCtU15PPNocE739" target="_blank">Submit your chatfic</a>
+            <div style="text-align:center;"><a class="btn" href="https://forms.gle/scmCtU15PPNocE739" target="_blank">Submit your chatfic</a></div>
         </div>
     </body>
     </html>
