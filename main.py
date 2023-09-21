@@ -29,6 +29,9 @@ load_dotenv()
 
 app = FastAPI()
 
+# s3_link = "https://chatficdottop.s3.us-east-2.amazonaws.com"
+s3_link = "https://topaltdb.s3.us-east-2.amazonaws.com"
+
 # Connect to the database
 def get_db():
     return mysql.connector.connect(**DATABASE_SETTINGS)
@@ -58,7 +61,7 @@ def get_story_from_db(storyGlobalId):
             "description": item["description"],
             "author": item["author"],
             "patreonusername": item["patreonusername"],
-            "cdn":"https://chatficdottop.s3.us-east-2.amazonaws.com"
+            "cdn":s3_link
             }
     else:
         raise HTTPException(status_code=404, detail="Story not found")
@@ -86,7 +89,7 @@ def get_latest_stories_from_db():
             "description": item["description"],
             "author": item["author"],
             "patreonusername": item["patreonusername"],
-            "cdn": "https://chatficdottop.s3.us-east-2.amazonaws.com"
+            "cdn": s3_link
         })
 
     return stories_list
