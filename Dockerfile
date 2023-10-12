@@ -11,4 +11,5 @@ COPY . /app
 
 EXPOSE 8000
 
-CMD ["gunicorn", "main:app", "-c", "/app/gunicorn_conf.py"]
+# CMD ["gunicorn", "main:app", "-c", "/app/gunicorn_conf.py"]
+CMD ["./entrypoint.sh"]
