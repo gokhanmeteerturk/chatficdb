@@ -42,6 +42,28 @@ def get_db():
 
 
 def get_story_from_db(storyGlobalId):
+    """
+    Retrieves a story from the database based on the provided storyGlobalId.
+
+    Args:
+        storyGlobalId (int): The unique identifier of the story.
+
+    Returns:
+        dict: A dictionary containing the details of the story. The dictionary has the following keys:
+            - "isFound" (bool): Indicates whether the story was found in the database.
+            - "title" (str): The title of the story.
+            - "description" (str): The description of the story.
+            - "author" (str): The author of the story.
+            - "patreonusername" (str): The Patreon username associated with the story.
+            - "cdn" (str): The CDN link for the story's content.
+
+    Raises:
+        HTTPException: If there was an error connecting to the database or if the story was not found.
+            The exception has the following properties:
+                - status_code (int): The HTTP status code associated with the error.
+                - detail (str): A detailed error message.
+
+    """
     db_connection = get_db()
     cursor = db_connection.cursor(dictionary=True)
 
@@ -118,7 +140,7 @@ async def get_story(storyGlobalId: str):
         story = models.Story.filter(storyGlobalId=storyGlobalId).limit(1)
         result = await models.Story_Pydantic.from_queryset(story)
         if result:
-            return result
+            return result[0]
         raise Exception("Not found")
         # return get_story_from_db(storyGlobalId)
     except Exception as e:

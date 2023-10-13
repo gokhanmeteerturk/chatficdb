@@ -1,5 +1,13 @@
 # chatficdb
 
+
+## SETUP
+
+1. [PRODUCTION SETUP](#production-setup)
+2. [DEVELOPMENT SETUP](#development-setup)
+
+### PRODUCTION SETUP
+
 For a clean ec2 container with Ubuntu:
 
 ```bash
@@ -109,4 +117,25 @@ To update:
 
 ```bash
 git pull && sudo docker stop chatficdb-app-1 && sudo docker compose up -d --build
+```
+
+### DEVELOPMENT SETUP ([⮢](#setup))
+Clone this repo, create a virtual environment and install dependencies:
+```bash
+git clone https://github.com/gokhanmeteerturk/chatficdb.git
+cd chatficdb
+python3 -m venv env
+source env/bin/activate
+pip install -r requirements.txt
+```
+
+Create .env and change contents with your mysql server credentials:
+
+```bash
+cp env-example .env
+nano .env
+```
+Run the development server with uvicorn:
+```bash
+uvicorn main:app --host 127.0.0.1 --port 8000
 ```
