@@ -4,7 +4,7 @@
 ## SETUP
 
 1. [PRODUCTION SETUP](#production-setup)
-2. [DEVELOPMENT SETUP](#development-setup)
+2. [DEVELOPMENT SETUP](#development-setup-)
 
 ### PRODUCTION SETUP
 
