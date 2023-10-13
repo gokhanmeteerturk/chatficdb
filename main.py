@@ -2,15 +2,14 @@
 
 import logging
 
-import mysql.connector
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from tortoise.contrib.fastapi import register_tortoise
 
-from database import models
-from settings import DATABASE_SETTINGS
+from endpoints import stories
+
 import settings
 
 app = FastAPI()
@@ -27,128 +26,110 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# app.include_router(products.router)
+# app.include_router(orders.router)
 
 load_dotenv()
 
 app = FastAPI()
+app.include_router(stories.router)
 
 # s3_link = "https://chatficdottop.s3.us-east-2.amazonaws.com"
-s3_link = "https://topaltdb.s3.us-east-2.amazonaws.com"
+S3_LINK = "https://topaltdb.s3.us-east-2.amazonaws.com"
 
 
 # Connect to the database
-def get_db():
-    return mysql.connector.connect(**DATABASE_SETTINGS)
+# def get_db():
+#     return mysql.connector.connect(**DATABASE_SETTINGS)
 
 
-def get_story_from_db(storyGlobalId):
-    """
-    Retrieves a story from the database based on the provided storyGlobalId.
-
-    Args:
-        storyGlobalId (int): The unique identifier of the story.
-
-    Returns:
-        dict: A dictionary containing the details of the story. The dictionary has the following keys:
-            - "isFound" (bool): Indicates whether the story was found in the database.
-            - "title" (str): The title of the story.
-            - "description" (str): The description of the story.
-            - "author" (str): The author of the story.
-            - "patreonusername" (str): The Patreon username associated with the story.
-            - "cdn" (str): The CDN link for the story's content.
-
-    Raises:
-        HTTPException: If there was an error connecting to the database or if the story was not found.
-            The exception has the following properties:
-                - status_code (int): The HTTP status code associated with the error.
-                - detail (str): A detailed error message.
-
-    """
-    db_connection = get_db()
-    cursor = db_connection.cursor(dictionary=True)
-
-    select_query = "SELECT * FROM stories WHERE storyGlobalId=%s LIMIT 1"
-    values = (storyGlobalId,)
-
-    try:
-        cursor.execute(select_query, values)
-        items = cursor.fetchall()
-    except Exception as e:
-        logging.error(e)
-        raise HTTPException(status_code=500, detail="Error connecting DB")
-    finally:
-        cursor.close()
-        db_connection.close()
-
-    if items is not None and len(items) > 0:
-        item = items[0]
-        return {
-            "isFound": True,
-            "title": item["title"],
-            "description": item["description"],
-            "author": item["author"],
-            "patreonusername": item["patreonusername"],
-            "cdn": s3_link
-        }
-    else:
-        raise HTTPException(status_code=404, detail="Story not found")
+# def get_story_from_db(storyGlobalId):
+#
+#     db_connection = get_db()
+#     cursor = db_connection.cursor(dictionary=True)
+#
+#     select_query = "SELECT * FROM stories WHERE storyGlobalId=%s LIMIT 1"
+#     values = (storyGlobalId,)
+#
+#     try:
+#         cursor.execute(select_query, values)
+#         items = cursor.fetchall()
+#     except Exception as e:
+#         logging.error(e)
+#         raise HTTPException(status_code=500, detail="Error connecting DB")
+#     finally:
+#         cursor.close()
+#         db_connection.close()
+#
+#     if items is not None and len(items) > 0:
+#         item = items[0]
+#         return {
+#             "isFound": True,
+#             "title": item["title"],
+#             "description": item["description"],
+#             "author": item["author"],
+#             "patreonusername": item["patreonusername"],
+#             "cdn": S3_LINK
+#         }
+#     else:
+#         raise HTTPException(status_code=404, detail="Story not found")
 
 
-def get_latest_stories_from_db():
-    db_connection = get_db()
-    cursor = db_connection.cursor(dictionary=True)
-
-    select_query = "SELECT * FROM stories ORDER BY idstory DESC LIMIT 50"
-
-    try:
-        cursor.execute(select_query)
-        items = cursor.fetchall()
-    except Exception as e:
-        logging.error(e)
-        raise HTTPException(status_code=500, detail="Error connecting DB")
-    finally:
-        cursor.close()
-        db_connection.close()
-
-    stories_list = []
-    for item in items:
-        stories_list.append({
-            "title": item["title"],
-            "description": item["description"],
-            "author": item["author"],
-            "patreonusername": item["patreonusername"],
-            "cdn": s3_link
-        })
-
-    return stories_list
-
-
-@app.get("/stories")
-async def get_stories():
-    try:
-        stories = await models.Story_Pydantic.from_queryset(models.Story.all())
-        # return {"isFound": True, "stories": get_latest_stories_from_db()}
-        return {"isFound": True, "stories": stories}
-    except Exception as e:
-        logging.error(e)
-        return {"isFound": False, "stories": []}
+# def get_latest_stories_from_db():
+#     db_connection = get_db()
+#     cursor = db_connection.cursor(dictionary=True)
+#
+#     select_query = "SELECT * FROM stories ORDER BY idstory DESC LIMIT 50"
+#
+#     try:
+#         cursor.execute(select_query)
+#         items = cursor.fetchall()
+#     except Exception as e:
+#         logging.error(e)
+#         raise HTTPException(status_code=500, detail="Error connecting DB")
+#     finally:
+#         cursor.close()
+#         db_connection.close()
+#
+#     stories_list = []
+#     for item in items:
+#         stories_list.append({
+#             "title": item["title"],
+#             "description": item["description"],
+#             "author": item["author"],
+#             "patreonusername": item["patreonusername"],
+#             "cdn": S3_LINK
+#         })
+#
+#     return stories_list
 
 
-@app.get("/story")
-async def get_story(storyGlobalId: str):
-    try:
-        story = models.Story.filter(storyGlobalId=storyGlobalId).limit(1)
-        result = await models.Story_Pydantic.from_queryset(story)
-        if result:
-            row = result[0]
-            return {"isFound": True, "title": row.title, "description": row.description, "author": row.author,
-                "patreonusername": row.patreonusername, "cdn": s3_link}
-        raise Exception("Not found")
-        # return get_story_from_db(storyGlobalId)
-    except Exception as e:
-        logging.error(e)
-        return {"isFound": False, "title": "", "description": "", "author": "",
-                "patreonusername": "", "cdn": ""}
+# @app.get("/stories")
+# async def get_stories():
+#     try:
+#         stories = await models.Story_Pydantic.from_queryset(models.Story.all())
+#         # return {"isFound": True, "stories": get_latest_stories_from_db()}
+#         return {"isFound": True, "stories": stories}
+#     except Exception as e:
+#         logging.error(e)
+#         return {"isFound": False, "stories": []}
+
+
+# @app.get("/story")
+# async def get_story(storyGlobalId: str):
+#     try:
+#         story = models.Story.filter(storyGlobalId=storyGlobalId).limit(1)
+#         result = await models.Story_Pydantic.from_queryset(story)
+#         if result:
+#             row = result[0]
+#             return {"isFound": True, "title": row.title, "description": row.description, "author": row.author,
+#                 "patreonusername": row.patreonusername, "cdn": S3_LINK}
+#         raise Exception("Not found")
+#         # return get_story_from_db(storyGlobalId)
+#     except Exception as e:
+#         logging.error(e)
+#         return {"isFound": False, "title": "", "description": "", "author": "",
+#                 "patreonusername": "", "cdn": ""}
 
 
 @app.get("/submit", response_class=HTMLResponse)
