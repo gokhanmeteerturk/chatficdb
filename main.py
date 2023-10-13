@@ -1,16 +1,20 @@
 # main.py
-import os
-from typing import Optional
-from fastapi import Depends, FastAPI, HTTPException, Header
-from fastapi.responses import HTMLResponse
-from dotenv import load_dotenv
-import mysql.connector
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-from email_validator import validate_email, EmailNotValidError
-import bcrypt
-app = FastAPI()
+
 import logging
+
+import mysql.connector
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from tortoise.contrib.fastapi import register_tortoise
+
+from database import models
+from settings import DATABASE_SETTINGS
+import settings
+
+app = FastAPI()
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,7 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from settings import DATABASE_SETTINGS
 
 load_dotenv()
 
@@ -32,9 +35,11 @@ app = FastAPI()
 # s3_link = "https://chatficdottop.s3.us-east-2.amazonaws.com"
 s3_link = "https://topaltdb.s3.us-east-2.amazonaws.com"
 
+
 # Connect to the database
 def get_db():
     return mysql.connector.connect(**DATABASE_SETTINGS)
+
 
 def get_story_from_db(storyGlobalId):
     db_connection = get_db()
@@ -61,10 +66,11 @@ def get_story_from_db(storyGlobalId):
             "description": item["description"],
             "author": item["author"],
             "patreonusername": item["patreonusername"],
-            "cdn":s3_link
-            }
+            "cdn": s3_link
+        }
     else:
         raise HTTPException(status_code=404, detail="Story not found")
+
 
 def get_latest_stories_from_db():
     db_connection = get_db()
@@ -94,21 +100,32 @@ def get_latest_stories_from_db():
 
     return stories_list
 
+
 @app.get("/stories")
-def get_server():
+async def get_stories():
     try:
-        return {"isFound": True, "stories":get_latest_stories_from_db()}
+        stories = await models.Story_Pydantic.from_queryset(models.Story.all())
+        # return {"isFound": True, "stories": get_latest_stories_from_db()}
+        return {"isFound": True, "stories": stories}
     except Exception as e:
         logging.error(e)
-        return {"isFound": False, "stories":[]}
+        return {"isFound": False, "stories": []}
+
 
 @app.get("/story")
-def get_server(storyGlobalId: str):
+async def get_story(storyGlobalId: str):
     try:
-        return get_story_from_db(storyGlobalId)
+        story = models.Story.filter(storyGlobalId=storyGlobalId).limit(1)
+        result = await models.Story_Pydantic.from_queryset(story)
+        if result:
+            return result
+        raise Exception("Not found")
+        # return get_story_from_db(storyGlobalId)
     except Exception as e:
         logging.error(e)
-        return {"isFound": False,"title": "","description": "","author": "","patreonusername": "", "cdn":""}
+        return {"isFound": False, "title": "", "description": "", "author": "",
+                "patreonusername": "", "cdn": ""}
+
 
 @app.get("/submit", response_class=HTMLResponse)
 async def show_submit_page():
@@ -167,3 +184,11 @@ async def show_submit_page():
     </html>
     """
     return HTMLResponse(content=html_content)
+
+register_tortoise(
+    app,
+    config=settings.TORTOISE_CONFIG,
+    modules={"models": ["database.models"]},
+    generate_schemas=True,
+    add_exception_handlers=False,
+)
