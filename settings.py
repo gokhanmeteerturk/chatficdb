@@ -2,7 +2,16 @@
 import os
 from dotenv import load_dotenv
 
+from helpers.utils import str_to_bool
+
 load_dotenv()
+
+SITE_METADATA = {
+    "name": os.getenv('SERVER_NAME'),
+    "slug": os.getenv('SERVER_SLUG'),
+    "url": os.getenv('SERVER_URL'),
+    "nsfw": str_to_bool(os.getenv('SERVER_NSFW', 'False'))
+}
 
 DATABASE_SETTINGS = {
     "user": os.getenv("DATABASE_USER"),
@@ -35,4 +44,4 @@ TORTOISE_CONFIG = {
     }
 }
 
-DEBUG = os.getenv("DEBUG") == "True"
+DEBUG = str_to_bool(os.getenv('DEBUG', 'False'))
