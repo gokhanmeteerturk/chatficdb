@@ -140,7 +140,9 @@ async def get_story(storyGlobalId: str):
         story = models.Story.filter(storyGlobalId=storyGlobalId).limit(1)
         result = await models.Story_Pydantic.from_queryset(story)
         if result:
-            return result[0]
+            row = result[0]
+            return {"isFound": True, "title": row.title, "description": row.description, "author": row.author,
+                "patreonusername": row.patreonusername, "cdn": s3_link}
         raise Exception("Not found")
         # return get_story_from_db(storyGlobalId)
     except Exception as e:
