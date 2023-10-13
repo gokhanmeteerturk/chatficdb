@@ -5,3 +5,8 @@ DATABASE_PASSWORD=
 DATABASE_NAME=
 PORT=8000
 DEBUG=False
+
+SERVER_NAME="Just Another Chatfic Server"
+SERVER_SLUG=myserver
+SERVER_URL=mychatficserver.com
+SERVER_NSFW=False
