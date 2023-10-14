@@ -137,5 +137,5 @@ nano .env
 ```
 Run the development server with uvicorn:
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 8000
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-include '*.html'
 ```
