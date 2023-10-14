@@ -10,3 +10,4 @@ SERVER_NAME="Just Another Chatfic Server"
 SERVER_SLUG=myserver
 SERVER_URL=mychatficserver.com
 SERVER_NSFW=False
+SUBMIT_URL="https://forms.gle/...."
