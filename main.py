@@ -17,6 +17,8 @@ import settings
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
+templates.env.globals['server'] = settings.SERVER_METADATA
+templates.env.globals['theme'] = settings.THEME
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,7 +49,7 @@ async def show_submit_page(request: Request):
     # Pass the template and context data to the template engine
     return templates.TemplateResponse(
         "submit_page.html",
-        {"request": request, "metadata": metadata},
+        {"request": request},
     )
 
 

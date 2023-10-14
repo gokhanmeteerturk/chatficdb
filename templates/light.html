@@ -1,0 +1,43 @@
+<style>
+        body{
+            background-color: #f2f2f2;
+            color: #222;
+        }
+        header::before{
+            opacity:0.9;
+        }
+        header{
+            color: #fff;
+        }
+        #centered-div {
+            border: 1px solid #eee;
+            color: #222 !important;
+            background-color: #fff;
+        }
+        .btn{
+            color: #fff;
+            }
+        .btn::after {
+            background-color: var(--color-primary);
+            opacity:0.8;
+            transition: opacity 0.3s ease;
+        }
+        .btn:hover::after {
+            opacity:1;
+        }
+        .btn::before{
+            content:'';
+            position:absolute;
+            top:0;left:0;width:100%;height:100%;
+            z-index:-1;
+            background-color:black;
+            opacity:0;
+            transition: opacity 0.3s ease;
+        }
+        .btn:focus::before, .btn:active::before{
+            opacity: 0.2;
+        }
+        .btn:focus::after, .btn:active::after {
+            opacity:0.9;
+        }
+    </style>

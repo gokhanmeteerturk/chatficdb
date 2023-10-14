@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Submit Page{% endblock %}
+{% block title %}Submit To {{ server.name }}{% endblock %}
 
 {% block content %}
     <div id="centered-div">
-        <h2>How to create</h2>
+        <h2>How to create a Chatfic</h2>
         <p>Chatfics generally get created using the chatfic-format. It is possible to create one without any tools. But using an editor is much easier.<br><br>You can use editor.chatficlab.com to create your own chatfic. No prior experience required.</p>
         <hr>
-        <h2>Submit Your Chatfic Story to {{ metadata.name }}</h2>
+        <h2>Submit Your Chatfic Story to {{ server.name }}</h2>
         <p>You can submit your chatfic as a .zip archive as suggested by the chatfic-format (Our online editor creates this automatically).<br><br>Once ready, upload your file to any popular file sharing platform (Wetransfer, Google Drive, Dropbox etc) and send us the link using the below button.</p>
-        <div style="text-align: center;"><a class="btn" href="{{ metadata.submit_url }}" target="_blank">Submit your chatfic</a></div>
+        <div style="text-align: center;margin-top:12px;"><a class="btn" href="{{ server.submit_url }}" target="_blank">Submit your chatfic</a></div>
     </div>
 {% endblock %}

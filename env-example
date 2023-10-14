@@ -6,8 +6,11 @@ DATABASE_NAME=
 PORT=8000
 DEBUG=False
 
-SERVER_NAME="Just Another Chatfic Server"
+SERVER_NAME="Just Another"
 SERVER_SLUG=myserver
 SERVER_URL=mychatficserver.com
 SERVER_NSFW=False
 SUBMIT_URL="https://forms.gle/...."
+
+THEME_MODE=light
+THEME_COLOR_PRIMARY="#00AA8C"

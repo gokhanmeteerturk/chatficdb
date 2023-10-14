@@ -1,0 +1,25 @@
+<style>
+        body{
+            background-color: #2d2d2d;
+            color: #fff;
+        }
+        #centered-div {
+            border: 1px solid #000;
+            color: white !important;
+            background-color: #111;
+        }
+        .btn{
+            color: #fff;
+            }
+        .btn::after {
+            background-color: var(--color-primary);
+            opacity:0.8;
+            transition: opacity 0.3s ease;
+        }
+        .btn:hover::after {
+            opacity:1;
+        }
+        .btn:focus::after, .btn:active::after {
+            opacity:0.6;
+        }
+    </style>

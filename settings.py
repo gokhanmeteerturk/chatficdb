@@ -53,3 +53,8 @@ TORTOISE_CONFIG = {
 }
 
 DEBUG = str_to_bool(os.getenv('DEBUG', 'False'))
+
+THEME = {
+    'mode': os.getenv('THEME_MODE', 'light'),
+    'primary': os.getenv('THEME_COLOR_PRIMARY', '#00AA8C'),
+}
