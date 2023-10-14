@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charSet="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <title>{% block title %}Default Title{% endblock %}</title>
+    <style>
+        html { box-sizing: border-box; font-size: 16px; } *, *:before, *:after { box-sizing: inherit; } body, h1, h2, h3, h4, h5, h6, p, ol, ul { margin: 0; padding: 0; font-weight: normal; } ol, ul { list-style: none; } img { max-width: 100%; height: auto; }
+        h1, h2, h3{font-weight:medium; margin: 24px 0 16px 0;}
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: top;
+            height: 100vh;
+            margin: 0;
+            background-color: #2d2d2d;
+            font-family: "Roboto", Arial, sans-serif;
+        }
+        header{
+            display:block;
+            position:fixed;
+            top:0;left:0;width:100%;
+        }
+        #centered-div {
+            margin-top:60px;
+            text-align: left;
+            padding: 20px;
+            border: 1px solid #000;
+            border-radius: 5px;
+            color: white !important;
+            background-color: #111;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 4px;
+            background-color: #2196F3;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #1976D2;
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        {% include "header.html" %}
+    </header>
+    <div id="content">
+        {% block content %}{% endblock %}
+    </div>
+    <footer>
+        <!-- Footer content here -->
+    </footer>
+</body>
+</html>
