@@ -35,7 +35,8 @@ async def get_server_metadata():
     """
     Get the server metadata.
 
-    This function retrieves the server metadata by accessing the `SERVER_METADATA` variable in the `settings` module.
+    This function retrieves the server metadata by accessing
+    the `SERVER_METADATA` variable in the `settings` module.
 
     Returns:
         The server metadata as a dictionary.
