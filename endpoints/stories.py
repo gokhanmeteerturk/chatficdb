@@ -1,7 +1,6 @@
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
-from tortoise.expressions import Q
 
 import settings
 from database import models
@@ -122,9 +121,13 @@ async def get_series(
             raise HTTPException(status_code=400,
                                 detail="Invalid sort_by value")
 
-        series = await models.Series_Pydantic.from_queryset(
+        series = await models.SeriesWithRels_Pydantic.from_queryset(
             series_query.offset(skip).limit(limit + 1))
         if series:
+            for ix, single_series in enumerate(series):
+                series[ix] = single_series.model_dump()
+                del series[ix]["stories"]
+                del series[ix]["tags_rel"]
             next_page = None
             if len(series) == limit + 1:
                 next_page = page + 1

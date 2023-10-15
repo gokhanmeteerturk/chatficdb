@@ -1,7 +1,11 @@
-# noinspection PyPackageRequirements
-from tortoise import Model, fields
+from __future__ import annotations
+
+from typing import List
+
+from tortoise import Model, fields, Tortoise
 # noinspection PyPackageRequirements
 from tortoise.contrib.pydantic import pydantic_model_creator
+from tortoise.exceptions import NoValuesFetched
 
 
 class Series(Model):
@@ -10,16 +14,27 @@ class Series(Model):
     seriesGlobalId = fields.CharField(max_length=20)
     creator = fields.CharField(max_length=45)
     episodes = fields.IntField(default=1)
+    stories = fields.ReverseRelation["Story"]
+    tags_rel = fields.ReverseRelation["SeriesTagsRel"]
+
+    def numStories(self) -> int:
+        # Compute the number of stories associated with this series
+        try:
+            return len(self.stories)
+        except NoValuesFetched:
+            return -1
+
+    def tagList(self) -> list[str]:
+        # Compute a list of tags associated with this series
+        tags = [str(tag_rel.tag.tag) for tag_rel in
+                         self.tags_rel]
+        return tags
 
     class Meta:
         table = "series"
 
-
-Series_Pydantic = pydantic_model_creator(Series,
-                                         name="Series")
-SeriesIn_Pydantic = pydantic_model_creator(Series,
-                                           name="SeriesIn",
-                                           exclude_readonly=True)
+    class PydanticMeta:
+        computed = ["numStories", "tagList"]
 
 
 class SeriesTagsRel(Model):
@@ -64,6 +79,16 @@ class Tag(Model):
         table = "tags"
 
 
+Series_Pydantic = pydantic_model_creator(Series,
+                                         name="Series")
+SeriesIn_Pydantic = pydantic_model_creator(Series,
+                                           name="SeriesIn",
+                                           exclude_readonly=True)
+
 Tag_Pydantic = pydantic_model_creator(Tag, name="Tag")
 TagIn_Pydantic = pydantic_model_creator(Tag, name="TagIn",
                                         exclude_readonly=True)
+
+Tortoise.init_models(["database.models"], "models")
+
+SeriesWithRels_Pydantic = pydantic_model_creator(Series, name="SeriesWithRels")
