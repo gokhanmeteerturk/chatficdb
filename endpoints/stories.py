@@ -97,6 +97,31 @@ async def get_stories(
         return {"isFound": False, "stories": []}
 
 
+@router.get("/landing")
+async def get_landing():
+
+    try:
+        meta = settings.SERVER_METADATA
+        meta["theme"] = {
+            "primary": settings.THEME["primary"],
+        }
+    except Exception as e:
+        logging.error(e)
+        meta = {}
+
+    series_query = models.Series.all().order_by("-idseries").limit(10)
+    series = await models.SeriesWithRels_Pydantic.from_queryset(series_query)
+    if series:
+        for ix, single_series in enumerate(series):
+            series[ix] = single_series.model_dump()
+            del series[ix]["stories"]
+            del series[ix]["tags_rel"]
+    else:
+        series = []
+    meta["series"] = series
+    return meta
+
+
 @router.get("/series")
 async def get_series(
         page: int = Query(1, description="Page number, default: 1"),
