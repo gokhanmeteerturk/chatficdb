@@ -44,7 +44,11 @@ async def get_server_metadata():
         Exception: If there is an error retrieving the server metadata.
     """
     try:
-        return settings.SERVER_METADATA
+        meta = settings.SERVER_METADATA
+        meta["theme"] = {
+            "primary": settings.THEME["primary"],
+        }
+        return meta
     except Exception as e:
         logging.error(e)
         return {}
