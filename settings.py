@@ -9,6 +9,8 @@ CHATFICDB_VERSION_NUMBER = 900
 
 load_dotenv()
 
+S3_LINK = os.getenv('S3_LINK', "https://topaltdb.s3.us-east-2.amazonaws.com")
+
 SERVER_METADATA = {
     "name": os.getenv('SERVER_NAME'),
     "slug": os.getenv('SERVER_SLUG'),

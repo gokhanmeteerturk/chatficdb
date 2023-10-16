@@ -39,7 +39,7 @@ load_dotenv()
 app = FastAPI()
 app.include_router(stories.router)
 
-S3_LINK = "https://topaltdb.s3.us-east-2.amazonaws.com"
+S3_LINK = settings.S3_LINK
 
 
 @app.get("/submit", response_class=HTMLResponse)
