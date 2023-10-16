@@ -1,5 +1,17 @@
-# chatficdb
+### chatficdb
 
+## Chatfic Servers
+chatficdb is an open source, fully featured, free server for chatfics. You can create your  
+own server, and publicly serve an archive of stories online.
+
+Chatficdb is designed specifically for storing and sharing interactive stories  
+in the chatfic format.
+
+#### Learn more about the chatfic-format [here](https://gokhanmeteerturk.github.io/chatfic-format/).
+
+Currently, the only popular way of accessing chatfic-servers and reading chatfics  
+online is through [chatficlab.com](https://chatficlab.com) . But there is an open-source  
+[online editor](https://github.com/gokhanmeteerturk/chatficbasic-html-editor) to both view and edit chatfics.
 
 ## SETUP
 
@@ -7,6 +19,8 @@
 2. [DEVELOPMENT SETUP](#development-setup-)
 
 ### PRODUCTION SETUP
+
+IMPORTANT: THIS REPO IS IN EARLY ALPHA. USE AT YOUR OWN RISK.
 
 For a clean ec2 container with Ubuntu:
 
@@ -120,7 +134,9 @@ git pull && sudo docker stop chatficdb-app-1 && sudo docker compose up -d --buil
 ```
 
 ### DEVELOPMENT SETUP ([⮢](#setup))
+
 Clone this repo, create a virtual environment and install dependencies:
+
 ```bash
 git clone https://github.com/gokhanmeteerturk/chatficdb.git
 cd chatficdb
@@ -135,7 +151,9 @@ Create .env and change contents with your mysql server credentials:
 cp env-example .env
 nano .env
 ```
+
 Run the development server with uvicorn:
+
 ```bash
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-include '*.html' --reload-include '.env'
 ```
