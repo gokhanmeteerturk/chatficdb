@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -57,15 +57,22 @@ async def get_server_metadata():
 @router.get("/stories")
 async def get_stories(
         page: int = Query(1, description="Page number, default: 1"),
-        sort_by: str = Query("new", description="Sort by 'new' or 'name"),
+        seriesGlobalId: Optional[str] = Query(None,
+                                              description="Series global id"),
+        sort_by: str = Query("date", description="Sort by 'date' or 'name"),
         tags_required: List[str] = Query([], description="Required tags")
 ):
+    print(seriesGlobalId)
     per_page = 10
     try:
         skip = (page - 1) * per_page
         limit = per_page
 
         stories_query = models.Story.all()
+
+        if seriesGlobalId:
+            stories_query = stories_query.filter(
+                series__seriesGlobalId=seriesGlobalId)
 
         if tags_required:
             tags_required = tags_required[:3]
@@ -74,8 +81,8 @@ async def get_stories(
                 series__tags_rel__tag__tag__in=tags_required
             )
 
-        if sort_by == "new":
-            stories_query = stories_query.order_by("-idstory")
+        if sort_by == "date":
+            stories_query = stories_query.order_by("idstory")
         elif sort_by == "name":
             stories_query = stories_query.order_by("title")
         else:
@@ -89,6 +96,11 @@ async def get_stories(
             next = None
             if len(stories) == limit + 1:
                 next = page + 1
+
+            for ix, story in enumerate(stories):
+                stories[ix] = story.model_dump()
+                stories[ix]["cdn"] = S3_LINK
+
             return {"isFound": True, "next": next, "page": page,
                     "stories": stories[:limit]}
         raise Exception("No stories found")
@@ -99,7 +111,6 @@ async def get_stories(
 
 @router.get("/landing")
 async def get_landing():
-
     try:
         meta = settings.SERVER_METADATA
         meta["theme"] = {
