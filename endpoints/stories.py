@@ -63,7 +63,7 @@ async def get_stories(
         tags_required: List[str] = Query([], description="Required tags")
 ):
     print(seriesGlobalId)
-    per_page = 10
+    per_page = 40
     try:
         skip = (page - 1) * per_page
         limit = per_page
