@@ -51,7 +51,7 @@ sudo echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/do
 sudo apt update
 
 sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-pip install docker-compose
+python3 -m pip install docker-compose
 ```
 
 clone this repo:
@@ -73,10 +73,10 @@ Change contents.
 ```bash
 nano .env
 ```
-
-move fastapi.conf
+edit and move fastapi.conf
 
 ```bash
+nano ./fastapi.conf
 sudo cp -f ./fastapi.conf /etc/nginx/sites-available/fastapi.conf
 ```
 
