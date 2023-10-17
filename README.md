@@ -20,7 +20,7 @@ online is through [chatficlab.com](https://chatficlab.com) . But there is an ope
 
 ### PRODUCTION SETUP
 
-IMPORTANT: THIS REPO IS IN EARLY ALPHA. USE AT YOUR OWN RISK.
+IMPORTANT: THIS REPO IS UNDER HEAVY DEVELOPMENT, AND IS IN EARLY ALPHA STAGE. USE AT YOUR OWN RISK.
 
 For a clean ec2 container with Ubuntu:
 
