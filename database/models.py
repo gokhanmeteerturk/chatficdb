@@ -6,7 +6,7 @@ from tortoise import Model, fields, Tortoise
 # noinspection PyPackageRequirements
 from tortoise.contrib.pydantic import pydantic_model_creator
 from tortoise.exceptions import NoValuesFetched
-
+from datetime import datetime
 
 class Series(Model):
     idseries = fields.IntField(pk=True)
@@ -61,6 +61,7 @@ class Story(Model):
     patreonusername = fields.CharField(max_length=45, null=True)
     storyGlobalId = fields.CharField(max_length=45, null=True)
     series = fields.ForeignKeyField('models.Series', related_name='stories')
+    release_date = fields.DatetimeField(auto_now_add=True, default=datetime.now)
 
     class Meta:
         table = "stories"

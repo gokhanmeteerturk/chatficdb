@@ -31,9 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.include_router(products.router)
-# app.include_router(orders.router)
-
 load_dotenv()
 
 app = FastAPI()
@@ -46,7 +43,6 @@ S3_LINK = settings.S3_LINK
 async def show_submit_page(request: Request):
     metadata = settings.SERVER_METADATA
 
-    # Pass the template and context data to the template engine
     return templates.TemplateResponse(
         "submit_page.html",
         {"request": request},

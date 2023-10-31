@@ -48,7 +48,6 @@ TORTOISE_CONFIG = {
     'apps': {
         'models': {
             'models': ["database.models", "aerich.models"],
-            # If no default_connection specified, defaults to 'default'
             'default_connection': 'default',
         }
     }

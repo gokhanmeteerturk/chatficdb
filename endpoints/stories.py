@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 import settings
 from database import models
 import logging
+from datetime import datetime
 
 S3_LINK = settings.S3_LINK
 
@@ -67,8 +68,7 @@ async def get_stories(
     try:
         skip = (page - 1) * per_page
         limit = per_page
-
-        stories_query = models.Story.all()
+        stories_query = models.Story.all().filter(release_date__lte=datetime.now())
 
         if seriesGlobalId:
             stories_query = stories_query.filter(
