@@ -6,7 +6,9 @@ import settings
 from database import models
 import logging
 from datetime import datetime
-from tortoise.functions import Count
+from tortoise.functions import Count, Sum
+# import Q from tortoise orm:
+from tortoise.expressions import Q, Subquery
 
 S3_LINK = settings.S3_LINK
 
@@ -175,9 +177,13 @@ async def get_series(
                 tags_rel__tag__tag__in=tags_required
             )
 
-        series_query = series_query.annotate(
-            story_count=Count("stories")
-        ).filter(story_count__gte=1)
+        series_query = series_query.filter(stories__idstory__in=Subquery(models.Story.filter(release_date__lte=datetime.now()).values("idstory"))).distinct()
+
+        # If tortoise orm's Count can introduce "filter" in the future,
+        # this will be used instead:
+        # series_query = series_query.annotate(
+        #     story_count=Count("stories", filter=Q(release_date__lte=datetime.now()))
+        # ).filter(story_count__gte=1)
 
         if sort_by == "new":
             series_query = series_query.order_by("-idseries")
