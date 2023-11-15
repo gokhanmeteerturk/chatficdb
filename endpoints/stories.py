@@ -18,7 +18,10 @@ router = APIRouter()
 @router.get("/story")
 async def get_story(storyGlobalId: str):
     try:
-        story = models.Story.filter(storyGlobalId=storyGlobalId).limit(1)
+        story = models.Story.filter(
+            storyGlobalId=storyGlobalId,
+            release_date__lte=datetime.now()
+        ).limit(1)
         result = await models.Story_Pydantic.from_queryset(story)
         if result:
             row = result[0]
@@ -77,15 +80,19 @@ async def get_stories(
     ),
     sort_by: str = Query("date", description="Sort by 'date' or 'name"),
     tags_required: List[str] = Query([], description="Required tags"),
+    include_upcoming: int = Query(0, description="Include upcoming releases")
 ):
     print(seriesGlobalId)
     per_page = 60
     try:
         skip = (page - 1) * per_page
         limit = per_page
-        stories_query = models.Story.all().filter(
-            release_date__lte=datetime.now()
-        )
+        stories_query = models.Story.all()
+
+        if not include_upcoming:
+            stories_query = stories_query.filter(
+                release_date__lte=datetime.now()
+            )
 
         if seriesGlobalId:
             stories_query = stories_query.filter(
