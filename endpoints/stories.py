@@ -39,8 +39,8 @@ async def get_story(storyGlobalId: str):
             ).limit(1)
             result = await models.Story_Pydantic.from_queryset(story)
             if result:
-            # TODO: let access to user with story pass
-            #     row = result[0]
+                # TODO: let access to user with story pass
+                #     row = result[0]
                 raise HTTPException(status_code=404, detail="Not Published")
 
         raise HTTPException(status_code=404, detail="Not found")
