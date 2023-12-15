@@ -33,6 +33,16 @@ async def get_story(storyGlobalId: str):
                 "patreonusername": row.patreonusername,
                 "cdn": S3_LINK,
             }
+        else:
+            story = models.Story.filter(
+                storyGlobalId=storyGlobalId
+            ).limit(1)
+            result = await models.Story_Pydantic.from_queryset(story)
+            if result:
+            # TODO: let access to user with story pass
+            #     row = result[0]
+                raise HTTPException(status_code=404, detail="Not Published")
+
         raise HTTPException(status_code=404, detail="Not found")
     except Exception as e:
         logging.error(e)
@@ -74,13 +84,14 @@ async def get_server_metadata():
 
 @router.get("/stories")
 async def get_stories(
-    page: int = Query(1, description="Page number, default: 1"),
-    seriesGlobalId: Optional[str] = Query(
-        None, description="Series global id"
-    ),
-    sort_by: str = Query("date", description="Sort by 'date' or 'name"),
-    tags_required: List[str] = Query([], description="Required tags"),
-    include_upcoming: int = Query(0, description="Include upcoming releases")
+        page: int = Query(1, description="Page number, default: 1"),
+        seriesGlobalId: Optional[str] = Query(
+            None, description="Series global id"
+        ),
+        sort_by: str = Query("date", description="Sort by 'date' or 'name"),
+        tags_required: List[str] = Query([], description="Required tags"),
+        include_upcoming: int = Query(0,
+                                      description="Include upcoming releases")
 ):
     print(seriesGlobalId)
     per_page = 60
@@ -166,9 +177,9 @@ async def get_landing():
 
 @router.get("/series")
 async def get_series(
-    page: int = Query(1, description="Page number, default: 1"),
-    sort_by: str = Query("new", description="Sort by 'new' or 'name"),
-    tags_required: List[str] = Query([], description="Required tags"),
+        page: int = Query(1, description="Page number, default: 1"),
+        sort_by: str = Query("new", description="Sort by 'new' or 'name"),
+        tags_required: List[str] = Query([], description="Required tags"),
 ):
     per_page = 60
     page = min(page, 20)
@@ -184,7 +195,9 @@ async def get_series(
                 tags_rel__tag__tag__in=tags_required
             )
 
-        series_query = series_query.filter(stories__idstory__in=Subquery(models.Story.filter(release_date__lte=datetime.now()).values("idstory"))).distinct()
+        series_query = series_query.filter(stories__idstory__in=Subquery(
+            models.Story.filter(release_date__lte=datetime.now()).values(
+                "idstory"))).distinct()
 
         # If tortoise orm's Count can introduce "filter" in the future,
         # this will be used instead:

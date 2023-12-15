@@ -63,6 +63,13 @@ class Story(Model):
     series = fields.ForeignKeyField('models.Series', related_name='stories')
     release_date = fields.DatetimeField(auto_now_add=True, default=datetime.now)
 
+    # this won't be hashed since it is not really a value with
+    # critical security. this will usually be shared with patreon supporters
+    # of the author and leak all the time. keeping it as raw string will help
+    # author to always come back and see their story pass
+    # and modify it with ease of mind.
+    # early_access_pass = fields.CharField(max_length=20, null=True)
+
     class Meta:
         table = "stories"
 
