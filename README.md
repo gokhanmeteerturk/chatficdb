@@ -157,3 +157,19 @@ Run the development server with uvicorn:
 ```bash
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-include '*.html' --reload-include '.env'
 ```
+
+## CONTRIBUTING
+
+## Contributing
+
+We welcome contributions from everyone. To ensure a smooth experience, follow these guidelines when contributing:
+
+1. Fork the repository and clone it to your local machine.
+2. Create a new branch for your feature or bug fix: `git checkout -b feature/your-feature` or `git checkout -b bugfix/your-bugfix`.
+3. Commit your changes with a descriptive commit message: `git commit -am 'Add a new feature'`.
+4. Push your branch to your forked repository: `git push origin feature/your-feature` or `git push origin bugfix/your-bugfix`.
+5. Open a pull request against the main branch of the original repository.
+6. Provide a clear and detailed description of your changes in the pull request.
+7. Once your pull request is approved, it will be merged into the main branch.
+
+Thank you for your contributions!
