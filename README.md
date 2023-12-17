@@ -160,8 +160,6 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-include '*.html'
 
 ## CONTRIBUTING
 
-## Contributing
-
 We welcome contributions from everyone. To ensure a smooth experience, follow these guidelines when contributing:
 
 1. Fork the repository and clone it to your local machine.
