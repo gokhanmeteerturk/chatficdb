@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
+import pytz
 from tortoise import Model, fields, Tortoise
 # noinspection PyPackageRequirements
 from tortoise.contrib.pydantic import pydantic_model_creator
@@ -20,6 +21,12 @@ class Series(Model):
     def numStories(self) -> int:
         # Compute the number of stories associated with this series
         try:
+            # Terrible performance, but maybe tortoise's pydantic integration
+            # can let us cache this property in the future.
+            # TODO: make this a calculated field and trigger its update when
+            # stories are published.
+            if type(self.stories) == list and len(self.stories) > 0:
+                return sum(story.release_date<=datetime.now(pytz.utc) for story in self.stories)
             return len(self.stories)
         except NoValuesFetched:
             return -1
