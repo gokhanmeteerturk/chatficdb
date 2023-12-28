@@ -1,11 +1,15 @@
+import json
+import math
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi_utils.tasks import repeat_every
 
 import settings
+import pytz
 from database import models
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from tortoise.functions import Count, Sum
 # import Q from tortoise orm:
 from tortoise.expressions import Q, Subquery
@@ -14,7 +18,8 @@ S3_LINK = settings.S3_LINK
 
 router = APIRouter()
 
-
+cached_weekly_program_path = "./cached_program_weekly.json"
+logging.getLogger().setLevel(logging.INFO if settings.DEBUG else logging.WARNING)
 @router.get("/story")
 async def get_story(storyGlobalId: str):
     try:
@@ -236,3 +241,95 @@ async def get_series(
     except Exception as e:
         logging.error(e)
         return {"isFound": False, "next": None, "page": page, "series": []}
+
+
+@router.get("/program")
+async def get_current_week_program():
+    # using FileResponse wouldn't help when we switch to a proper cache. So we'll load the json instead:
+    cached_program = await get_cached_weekly_program()
+
+    if cached_program:
+        return {"status": "success", "data": cached_program}
+    else:
+        return {"status": "error", "message": "Program not available."}
+
+
+async def get_cached_weekly_program():
+    try:
+        with open(cached_weekly_program_path, "r") as file:
+            cached_program = json.load(file)
+        logging.info("Received weekly program from cache")
+        return cached_program
+    except FileNotFoundError:
+        logging.info("Received weekly program without cache")
+        return await build_weekly_program()
+    except Exception as e:
+        logging.error(e)
+        return None
+
+
+async def build_weekly_program():
+    try:
+        # Calculate the start and end date of the current week
+        today = datetime.now()
+        start_of_week = today - timedelta(days=today.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+
+        # Query for stories within the current week
+        current_week_stories = await models.Story.filter(
+            release_date__gte=start_of_week,
+            release_date__lte=end_of_week
+        ).order_by("release_date").prefetch_related('series')
+
+        # Format the response
+        response_data = {
+            "week_start_date": start_of_week.strftime("%Y-%m-%d"),
+            "week_end_date": end_of_week.strftime("%Y-%m-%d"),
+            "stories": []
+        }
+        for story in current_week_stories:
+            series_name = story.series.name if story.series else None
+            series_global_id = story.series.seriesGlobalId if story.series else None
+
+            story_release_date_minute = story.release_date.minute
+            rounded_release_date = story.release_date + timedelta(
+                minutes=(
+                                30 - story_release_date_minute % 30
+                        ) % 30
+            ) if story_release_date_minute != 0 and story_release_date_minute != 30 else story.release_date
+
+            # Check if the story is released
+            if rounded_release_date <= datetime.now(pytz.utc):
+                story_global_id = story.storyGlobalId
+            else:
+                story_global_id = None
+
+            response_data["stories"].append({
+                "idstory": story.idstory,
+                "title": story.title,
+                "description": story.description,
+                "release_date": rounded_release_date.strftime("%Y-%m-%dT%H:%M:00Z"),
+                # "release_date": story.release_date,
+                "storyGlobalId": story_global_id,
+                "series_name": series_name,
+                "seriesGlobalId": series_global_id
+            })
+
+        with open(cached_weekly_program_path, 'w', encoding='utf-8') as f:
+            json.dump(response_data, f, ensure_ascii=False, default=str)
+            f.flush()
+        return response_data
+
+    except Exception as e:
+        logging.error(e)
+        return None
+        # Handle exceptions and log errors
+
+
+@router.on_event("startup")
+@repeat_every(seconds=60)  # 1 minute
+async def task_build_weekly_program() -> None:
+    now = datetime.now()
+    if now.minute in [1, 52]:
+        logging.info("Rebuilding weekly program for minute: {}".format(now.minute))
+        await build_weekly_program()
