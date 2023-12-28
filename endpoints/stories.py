@@ -3,7 +3,7 @@ import math
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi_utils.tasks import repeat_every
+from fastapi_utilities import repeat_every
 
 import settings
 import pytz
