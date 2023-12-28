@@ -330,6 +330,6 @@ async def build_weekly_program():
 @repeat_every(seconds=60)  # 1 minute
 async def task_build_weekly_program() -> None:
     now = datetime.now()
-    if now.minute in [1, 52]:
+    if now.minute in [1, 31]:
         logging.info("Rebuilding weekly program for minute: {}".format(now.minute))
         await build_weekly_program()
