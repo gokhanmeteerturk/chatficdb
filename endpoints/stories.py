@@ -272,7 +272,7 @@ async def build_weekly_program():
     try:
         # Calculate the start and end date of the current week
         today = datetime.now()
-        start_of_week = today - timedelta(days=today.weekday())
+        start_of_week = today - timedelta(days=today.weekday()) + timedelta(days=7)
         end_of_week = start_of_week + timedelta(days=6)
 
         # Query for stories within the current week
