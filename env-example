@@ -14,3 +14,5 @@ SUBMIT_URL="https://forms.gle/...."
 
 THEME_MODE=light
 THEME_COLOR_PRIMARY="#00AA8C"
+
+SHOW_PUBLISHED_ONLY=True

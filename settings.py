@@ -59,3 +59,8 @@ THEME = {
     'mode': os.getenv('THEME_MODE', 'light'),
     'primary': os.getenv('THEME_COLOR_PRIMARY', '#00AA8C'),
 }
+
+# STORIES ENDPOINT SETTINGS:
+# Defines behaviour for single story endpoint.
+# Defines "default" behaviour for stories endpoint.
+SHOW_PUBLISHED_ONLY = str_to_bool(os.getenv('SHOW_PUBLISHED_ONLY', 'True'))

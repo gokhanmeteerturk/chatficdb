@@ -23,10 +23,14 @@ logging.getLogger().setLevel(logging.INFO if settings.DEBUG else logging.WARNING
 @router.get("/story")
 async def get_story(storyGlobalId: str):
     try:
-        story = models.Story.filter(
-            storyGlobalId=storyGlobalId,
-            release_date__lte=datetime.now()
-        ).limit(1)
+        if settings.SHOW_PUBLISHED_ONLY:
+            story = models.Story.filter(
+                storyGlobalId=storyGlobalId,
+                release_date__lte=datetime.now()).limit(1)
+        else:
+            story = models.Story.filter(
+                storyGlobalId=storyGlobalId
+            ).limit(1)
         result = await models.Story_Pydantic.from_queryset(story)
         if result:
             row = result[0]
