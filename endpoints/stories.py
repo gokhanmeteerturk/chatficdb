@@ -1,9 +1,11 @@
 import json
 import math
+import os
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi_utilities import repeat_every
+from fastapi.responses import FileResponse
 
 import settings
 import pytz
@@ -14,12 +16,18 @@ from tortoise.functions import Count, Sum
 # import Q from tortoise orm:
 from tortoise.expressions import Q, Subquery
 
+import feedgenerator  # Install it using: pip install feedgenerator
+
 S3_LINK = settings.S3_LINK
+FEED_PATH = "/feed.xml"
 
 router = APIRouter()
 
 cached_weekly_program_path = "./cached_program_weekly.json"
-logging.getLogger().setLevel(logging.INFO if settings.DEBUG else logging.WARNING)
+logging.getLogger().setLevel(
+    logging.INFO if settings.DEBUG else logging.WARNING)
+
+
 @router.get("/story")
 async def get_story(storyGlobalId: str):
     try:
@@ -312,7 +320,8 @@ async def build_weekly_program():
                 "idstory": story.idstory,
                 "title": story.title,
                 "description": story.description,
-                "release_date": rounded_release_date.strftime("%Y-%m-%dT%H:%M:00Z"),
+                "release_date": rounded_release_date.strftime(
+                    "%Y-%m-%dT%H:%M:00Z"),
                 # "release_date": story.release_date,
                 "storyGlobalId": story_global_id,
                 "series_name": series_name,
@@ -330,10 +339,67 @@ async def build_weekly_program():
         # Handle exceptions and log errors
 
 
+@router.get("/feed.xml", response_class=FileResponse)
+async def get_recent_stories_feed():
+    try:
+        with open("feed.xml", "r") as file:
+            pass
+        logging.info("Received feed with cache")
+        return "feed.xml"
+    except FileNotFoundError:
+        await build_rss_feed()
+        logging.info("Received feed without cache")
+        return "feed.xml"
+    except Exception as e:
+        logging.error(e)
+        return None
+
+
+
+async def build_rss_feed():
+    # Get the 5 most recent published stories
+    recent_stories = await models.Story.filter(
+        release_date__lte=datetime.now(),
+    ).order_by('-release_date').limit(5).prefetch_related('series', 'series__tags_rel', 'series__tags_rel__tag')
+
+    server_name = settings.SERVER_METADATA.get("name","")
+    server_url = settings.SERVER_METADATA.get("url","")
+    server_slug = settings.SERVER_METADATA.get("slug","")
+    feed = feedgenerator.Rss201rev2Feed(
+        title=f"{server_name} Chatfic Server RSS Feed",
+        link=f"{server_url}/feed",
+        description="Your RSS Feed Description",
+    )
+
+    # Add each story to the feed
+    for story in recent_stories:
+        feed.add_item(
+            title=story.title,
+            link=f"https://chatficlab.com/cfs-{server_slug}/story-{story.storyGlobalId}",
+            unique_id=f"{story.storyGlobalId}",
+            author_name=story.author,
+            categories=tuple(story.series.tagList()),
+            author_link=f"https://patreon.com/{story.patreonusername}" if story.patreonusername else "https://chatficlab.com",
+            description=story.description,
+            pubdate=story.release_date,
+        )
+
+
+    rss_file_path = "./feed.xml"
+    with open(rss_file_path, 'w', encoding='utf-8') as rss_file:
+        feed.write(rss_file, 'utf-8')
+        rss_file.flush()
+        os.fsync(rss_file)
+
+
 @router.on_event("startup")
 @repeat_every(seconds=60)  # 1 minute
-async def task_build_weekly_program() -> None:
+async def startup_event() -> None:
     now = datetime.now()
     if now.minute in [1, 31]:
-        logging.info("Rebuilding weekly program for minute: {}".format(now.minute))
+        logging.info(
+            "Rebuilding weekly program for minute: {}".format(now.minute))
         await build_weekly_program()
+    elif now.minute in [4, 34]:
+        logging.info("Rebuilding rss feed for minute: {}".format(now.minute))
+        await build_rss_feed()
