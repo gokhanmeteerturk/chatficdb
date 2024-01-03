@@ -367,8 +367,8 @@ async def build_rss_feed():
     server_slug = settings.SERVER_METADATA.get("slug","")
     feed = feedgenerator.Rss201rev2Feed(
         title=f"{server_name} Chatfic Server RSS Feed",
-        link=f"{server_url}/feed",
-        description="Your RSS Feed Description",
+        link=f"https://{server_url}/feed",
+        description="Latest stories from our chatfic server.",
     )
 
     # Add each story to the feed
