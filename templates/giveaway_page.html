@@ -549,7 +549,7 @@ Acceptance of Rules: By participating in the Sweepstakes, You have affirmatively
         else{
             axios.post("https://api.chatficlab.com/giveaway-entry-count").then((response) => {
                 if (response.status == 200) {
-                    document.getElementById('totalentries').innerHTML = (response.data.entries - 12).toLocaleString();
+                    document.getElementById('totalentries').innerHTML = ((response.data.entries - 12)/2).toLocaleString();
                 }
             });
         }
@@ -609,7 +609,7 @@ Acceptance of Rules: By participating in the Sweepstakes, You have affirmatively
             }
         }
         document.getElementById('yourentries').innerHTML = myEntries;
-        document.getElementById('totalentries').innerHTML = ((responseData.entries - 12) + myEntries).toLocaleString();
+        document.getElementById('totalentries').innerHTML = (((responseData.entries - 12)/2) + myEntries).toLocaleString();
     }
 </script>
 <script>
