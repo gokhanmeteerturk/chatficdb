@@ -1,0 +1,225 @@
+body{
+    height:100%;
+}
+body::after{
+    position: fixed;
+}
+header::before{
+    opacity: 1;
+}
+
+#centered-div{
+    max-width: 540px;
+    padding:0;
+}
+#centered-div .content{
+    padding: 16px 16px;
+}
+
+.header-meta{
+    background: inherit;
+    display: flex;
+    position: sticky;
+    height: 72px;
+    top: 52px;
+    z-index:90;
+}
+.header-meta>div{
+    flex: 1;
+    height: 72px;
+    border-bottom:5px solid var(--color-primary);
+    border-right: 1px solid rgba(125,125,125,0.5);
+    text-align: center;
+}
+.header-meta>div:first-child{border-bottom-color: #e76b67;}
+.header-meta>div:last-child{border-bottom-color: #6a5a8d;border-right:none;}
+
+.header-meta .number{
+    font-size: 24px;
+    display: block;
+    padding-top:7px;
+    line-height: 32px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    padding-bottom:3px;
+}
+.header-meta .text{
+    opacity: 0.7;
+    font-size: 16px;
+}
+.content-body{
+    opacity: 0.8;
+}
+.content h2{
+    font-size:26px;
+}
+
+h3.ways{
+    margin: 0;
+    padding: 12px 16px;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 24px;
+    background: rgba(125,125,125,0.1);
+    color: rgb(125,125,125);
+    border: rgba(125,125,125,0.6);
+    overflow: hidden;
+}
+#methods{
+    position: relative;
+    margin-bottom:300px;
+}
+#loginrequired{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(125,125,125,0.8);
+    display:flex;justify-content:center;align-items:start;
+}
+#loginrequired .login-content{
+    padding: 16px;
+    text-align: center;
+}
+#loggedin{
+    line-height: 40px;
+    text-align: center;
+    opacity: 0.5;
+}
+a.methodbubble {
+    display: flex;
+    min-height: 48px;
+    background: rgba(125,125,125,0.5);
+    margin: 8px;
+    color: inherit !important;
+    border-radius: 8px;
+    text-decoration: none !important;
+    line-height: 24px;
+    justify-content: stretch;
+    align-items: center;
+}
+.method.selected a.methodbubble{
+    box-shadow: 0 6px 12px 0 rgba(0, 0, 0, 0.6), 0 9px 30px 0 rgba(0, 0, 0, 0.59);
+    background: rgba(200,200,200,0.5);
+}
+a.methodbubble span {
+    display: block;
+    flex: 1;
+}
+a.methodbubble span:last-child {
+    flex: 0;
+    text-align: right;
+}
+a.methodbubble span:first-child {
+    flex-grow: 0;
+    flex-basis: 48px;
+    flex-shrink: 0 !important;
+    width: 48px !important;
+}
+a.methodbubble span.icon{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+a.methodbubble span.icon i{
+    display: block;
+    height: 36px;
+    width: 36px;
+    text-align: center;
+    line-height: 36px;
+    font-size: 24px;
+    border: 1px solid rgba(125,125,125,1);
+    border-radius: 6px;
+    background: rgba(125,125,125,0.5);
+}
+a.methodbubble span.amount{
+    border: none;
+    border-radius: 6px;
+    height: 32px;
+    line-height: 32px;
+    font-weight: 500;
+    width:60px;
+    text-align: center;
+    flex-basis: 60px;
+    flex-shrink: 0 !important;
+    margin-right: 8px;
+    background-color: var(--color-primary);
+    color:white !important;
+    font-size:23px;
+}
+.claimed span.amount{
+    background: #32CD32 !important;
+}
+.txt-white{
+    color: white;
+}
+.txt-black{
+    color: black;
+}
+
+.expandable{
+    display: none;
+    position: relative;
+    z-index:10;
+}
+.expandable>div{
+    margin: 0px 16px 16px 16px;
+    padding:12px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    position:absolute;
+    top:-8px;
+    left:0;
+    width:calc(100% - 32px);
+    z-index:5;
+    background: white;
+    color:black;
+    box-shadow: 0 6px 12px 0 rgba(0, 0, 0, 0.2), 0 9px 30px 0 rgba(0, 0, 0, 0.3);
+}
+.method.selected .expandable{
+    display: block;
+}
+.expandable input{
+    vertical-align: top;
+    height: 24px;
+}
+.expandable span.step{
+    color:black;
+    display:block;
+    margin: 8px 0;
+    font-weight: 500;
+}
+.btn.secondary {
+    padding: 4px 8px !important;
+    font-size: 14px;
+    vertical-align: top;
+}
+.fa-reddit-alien, .fa-reddit{
+    color: #ff4500;
+    background: white !important;
+}
+.fa-discord{
+    color: white;
+    background: #7289da !important;
+}
+.fa-x-twitter{
+    color: white;
+    background: black !important;
+}
+.fa-patreon{
+    color: white;
+    background: black !important;
+}
+.fa-flask{
+    color: #600b1f;
+    background: white !important;
+}
+.fa-github{
+    color: #24292e;
+}
+
+a.hidden{
+    display: none !important;
+}

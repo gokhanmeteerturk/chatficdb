@@ -70,6 +70,7 @@
         #content{
             z-index:2;
         }
+        .tac{text-align:center;}
         header{z-index: 4;}
         #centered-div {
             margin:60px 16px 16px 16px;
@@ -104,6 +105,8 @@
 {% else %}
     {% include "light.html" %}
 {% endif %}
+    {% block extrahead %}
+    {% endblock %}
 </head>
 <body>
     <header>

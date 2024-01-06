@@ -5,12 +5,13 @@ import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from tortoise.contrib.fastapi import register_tortoise
 
-from endpoints import stories
+from endpoints import stories, giveaways
 
 import settings
 
@@ -33,8 +34,10 @@ app.add_middleware(
 
 load_dotenv()
 
-app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
+# app = FastAPI()
 app.include_router(stories.router)
+app.include_router(giveaways.router)
 
 S3_LINK = settings.S3_LINK
 
