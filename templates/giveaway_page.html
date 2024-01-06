@@ -1,0 +1,640 @@
+{% extends "base.html" %}
+
+{% block title %}Chatfic Lab Giveaway By {{ server.name }}{% endblock %}
+
+{% block extrahead %}
+<meta name="og:title" content="Join Chatfic Lab Giveaway! 3 Premium Accounts!">
+<meta name="og:url" content="https://{{server.url}}/giveaway">
+<meta name="og:image" content="https://{{server.url}}/static/giveaway.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@NSFWchatfics">
+<meta name="twitter:creator" content="@chatficlab">
+<meta name="twitter:title" content="Join Chatfic Lab Giveaway! 3 Premium Accounts!">
+<meta name="twitter:image" content="https://{{server.url}}/static/giveaway.jpg">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<link href="/static/giveaway.css" rel="stylesheet">
+<script>
+
+        const IDToClaimType={
+            storyclick:"nsfwstory",
+            patreonclick:"patreon",
+            redditclick:"redditpostvisit",
+            email:"email",
+            discordname:"discord",
+            twitterusername:"twitter",
+            retweetusername:"retweet",
+            nsfwtwitterusername:"nsfwtwitter",
+            nsfwretweetusername:"nsfwretweet",
+            redditusername:"subreddit",
+            nsfwredditusername:"nsfwsubreddit",
+            nsfwredditcommentusername:"nsfwredditcomment"
+        };
+        const claimTypeToID= {
+            nsfwstory:"storyclick",
+            patreon:"patreonclick",
+            redditpostvisit:"redditclick",
+            email:"email",
+            discord:"discordname",
+            twitter:"twitterusername",
+            retweet:"retweetusername",
+            nsfwtwitter:"nsfwtwitterusername",
+            nsfwretweet:"nsfwretweetusername",
+            subreddit:"redditusername",
+            nsfwsubreddit:"nsfwredditusername",
+            nsfwredditcomment:"nsfwredditcommentusername"
+        };
+</script>
+<script>
+    function calculateTimeLeft(datetimeString) {
+    // Convert the input datetime string to a Date object
+    const targetDate = new Date(datetimeString);
+
+    // Calculate the time difference in milliseconds
+    const timeDifference = targetDate - Date.now();
+
+    // Calculate the remaining days and hours
+    const remainingDays = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+    const remainingHours = Math.floor((timeDifference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    // Determine the format based on the remaining time
+    if (remainingDays >= 2) {
+        return { type: "Days Left", amount: remainingDays };
+    } else {
+        return { type: "Hours Left", amount: remainingHours };
+    }
+}
+</script>
+<script>
+    let currentGiveawayId = 1;
+</script>
+<script>
+function parseJwt (token) {
+    var base64Url = token.split('.')[1];
+    var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+
+    return JSON.parse(jsonPayload);
+}
+</script>
+<script>
+    let userLoggedIn = false;
+    let userGiveawayId=null;
+    let emailDone = false;
+</script>
+<script>
+    function tryLoginWithJWT(token, isLocal){
+        if(token){
+            try{
+                let payload = parseJwt(token);
+                console.log();
+                userGiveawayId = payload["uid"];
+                userLoggedIn = true;
+                if(!isLocal){
+                    localStorage.setItem("giveaway_id", currentGiveawayId.toString());
+                    localStorage.setItem("token", token);
+                    localStorage.setItem("email_done", emailDone ? "true" : "false");
+                }
+            }
+            catch(err){
+                console.log(err);
+                alert("Problem with login data. Please refresh and try again.");
+            }
+        }
+    }
+</script>
+<script>
+    function linkClicked(elid){
+        document.getElementById(elid).classList.remove("hidden");
+        return true;
+    }
+    function linkClickedMiddle(e, elid){
+        if(e.button == 1){
+            return linkClicked(elid);
+        }
+        return true;
+    }
+</script>
+<script>
+    let url = new URL(window.location.href);
+    let params = new URLSearchParams(url.search);
+    let token = params.get('token');
+    emailDone = params.get('email_done');
+    tryLoginWithJWT(token, false);
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+{% endblock %}
+
+{% block content %}
+<div id="centered-div">
+    <div class="header-meta">
+        <div class="cell">
+            <span id="yourentries" class="number">0</span>
+            <span class="text">Your Entries</span>
+        </div>
+        <div class="cell">
+            <span id="totalentries" class="number"><i class="fa-solid fa-spinner"></i></span>
+            <span class="text">Total Entries</span>
+        </div>
+        <div class="cell">
+            <span id="daysleft" class="number"><i class="fa-solid fa-spinner"></i></span>
+            <span id="whatleft" class="text">Days Left</span>
+            <script>
+                const endsOn = "2024-01-10 14:30";
+                const timeLeftResponse = calculateTimeLeft(endsOn);
+                document.getElementById('daysleft').innerHTML = Math.max(timeLeftResponse.amount, 0);
+                document.getElementById('whatleft').innerHTML = timeLeftResponse.type;
+            </script>
+        </div>
+    </div>
+    <div class="content">
+        <h2 class="tac">Chatficlab.com 3 Premium Accounts!<br>2024 GIVEAWAY</h2>
+        <div class="content-body">
+        <p>
+            Participate in our exciting giveaway for a chance to win 3 Chatficlab Premium Accounts!
+        </p>
+        <br>
+        <p>
+            Elevate your interactive storytelling experience with exclusive features like character customization, fast-forwarding, tap-for-next and more.
+        </p>
+        <br>
+        <p>Chatficlab is a revolutionary platform that brings interactive storytelling to life!</p>
+
+        <h3 id="enter">Benefits of Chatficlab Premium:</h3>
+        <ul>
+            <li>Experience uninterrupted storytelling with the fast-forward feature, allowing you to reveal the entire chat and scroll freely.</li>
+            <li>Unleash your creativity by customizing character names and appearances, making the stories truly your own.</li>
+            <li>Use every other premium feature!</li>
+        </ul>
+        <br>
+        <p><b>Are you an author?</b>  Alternatively, you can create and publish stories on chatficlab.com to get premium feature for free, if you are an author! See the #announcement channel on our discord server for more information!</p>
+        </div>
+    </div>
+        <h3 class="ways tac">
+            12 Ways To Enter
+        </h3>
+        <div id="methods">
+            <div id="loggedin"></div>
+            <div id="loginrequired">
+                <div class="login-content">
+                    <?xml version="1.0" encoding="iso-8859-1"?>
+                    <svg fill="{% if theme.mode == 'dark' %}#aaaaaa{% else %}#444444{% endif %}" height="48px" width="48px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 330 330" xml:space="preserve">
+                        <path d="M65,330h200c8.284,0,15-6.716,15-15V145c0-8.284-6.716-15-15-15h-15V85c0-46.869-38.131-85-85-85
+                            S80,38.131,80,85v45H65c-8.284,0-15,6.716-15,15v170C50,323.284,56.716,330,65,330z M180,234.986V255c0,8.284-6.716,15-15,15
+                            s-15-6.716-15-15v-20.014c-6.068-4.565-10-11.824-10-19.986c0-13.785,11.215-25,25-25s25,11.215,25,25
+                            C190,223.162,186.068,230.421,180,234.986z M110,85c0-30.327,24.673-55,55-55s55,24.673,55,55v45H110V85z"/>
+                    </svg>
+                    <div style="margin:6px auto">You need to log in first:</div>
+                    <a class="btn" href="https://api.chatficlab.com/giveaway?callback=https%3A%2F%2Fchatficdb.top%2Fgiveaway%23enter">Login</a>
+                </div>
+            </div>
+            <div class="allmethods">
+                <div class="method" id="mailjoin">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-solid fa-envelope"></i></span>
+                        <span class="name">Enter Your Email Address</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <div><label>Enter Your Email:</label></div>
+                                <div><input id="email"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Save
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="method" id="story">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-solid fa-flask"></i></span>
+                        <span class="name">(NSFW) Read a story on Chatficlab</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <a target="_blank" href="https://chatficlab.com/cfs-afterdark" onauxclick="return linkClickedMiddle(event,'storyclick')" onclick="return linkClicked('storyclick');" class="btn">
+                                    Visit Afterdark on Chatficlab
+                                </a>
+                                <div>&nbsp;</div>
+                                <a href="javascript:void(0)" onclick="setClaim(this);" id="storyclick" class="btn secondary hidden">
+                                    Done
+                                </a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                    <div class="method" id="discord">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-discord"></i></span>
+                        <span class="name">Join ChatficLab Discord Server</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a target="_blank" href="https://discord.gg/3DC7YQvUF8" class="btn">
+                                    Join Our Discord Server
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Discord Username:</label></div>
+                                <div><input id="discordname"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="method" id="twitter">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-x-twitter"></i></span>
+                        <span class="name">Follow Chatfic Lab on X (Twitter)</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a href="https://twitter.com/chatficlab" class="btn">
+                                    Follow Chatfic Lab
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Twitter Username:</label></div>
+                                <div><input id="twitterusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="method" id="retweet">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-x-twitter"></i></span>
+                        <span class="name">Retweet @chatficlab's tweet</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a href="" class="btn">
+                                    Retweet this
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Twitter Username:</label></div>
+                                <div><input id="retweetusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="method" id="nsfwtwitter">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-x-twitter"></i></span>
+                        <span class="name">(NSFW) Follow NSFWchatfics on X (Twitter)</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a target="_blank" href="https://twitter.com/NSFWchatfics" class="btn">
+                                    Follow NSFWchatfics Lab
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Twitter Username:</label></div>
+                                <div><input id="nsfwtwitterusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="method" id="nsfwretweet">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-x-twitter"></i></span>
+                        <span class="name">(NSFW) Retweet @NSFWchatfics's tweet</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a href="" class="btn">
+                                    Retweet this tweet
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Twitter Username:</label></div>
+                                <div><input id="nsfwretweetusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="method" id="patreon">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-patreon"></i></span>
+                        <span class="name">Visit Chatfic Lab's Patreon</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a target="_blank" href="https://patreon.com/ChatficLab" onauxclick="return linkClickedMiddle(event, 'patreonclick')" onclick="return linkClicked('patreonclick');" class="btn">
+                                    Visit Chatfic Lab's Patreon
+                                </a>
+                                <div>&nbsp;</div>
+                                <a href="javascript:void(0)" onclick="setClaim(this);" id="patreonclick" class="btn secondary hidden">
+                                    Done
+                                </a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                 <div class="method" id="redditvisit">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-reddit"></i></span>
+                        <span class="name">Visit This Post on Reddit</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <a target="_blank" onauxclick="return linkClickedMiddle(event, 'redditclick')" onclick="return linkClicked('redditclick');" href="https://chatficlab.com/cfs-afterdark" class="btn">
+                                    Visit This Post on Reddit
+                                </a>
+                                <div>&nbsp;</div>
+                                <a href="javascript:void(0)" onclick="setClaim(this);" id="redditclick" class="btn secondary hidden">
+                                    Done
+                                </a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="method" id="subreddit">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-reddit"></i></span>
+                        <span class="name">Subscribe to chatficlab on Reddit</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a href="https://www.reddit.com/r/chatficlab" class="btn">
+                                    Subscribe to r/chatficlab
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Reddit Username:</label></div>
+                                <div><input id="redditusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="method" id="nsfwsubreddit">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-reddit"></i></span>
+                        <span class="name">(NSFW) Subscribe to NSFWchatfics on Reddit</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a href="https://www.reddit.com/r/NSFWchatfics" class="btn">
+                                    Subscribe to NSFWchatfics
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Reddit Username:</label></div>
+                                <div><input id="nsfwredditusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="method" id="nsfwcomment">
+                    <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
+                        <span class="icon"><i class="fa-brands fa-reddit"></i></span>
+                        <span class="name">(NSFW) Comment on any NSFWchatfics post</span>
+                        <span class="amount">+1</span>
+                    </a>
+                    <div class="expandable">
+                        <div class="tac">
+                            <span class="expandabletext">
+                                <span class="step">Step 1:</span>
+                                <a href="https://www.reddit.com/r/NSFWchatfics" class="btn">
+                                    Comment on r/NSFWchatfics
+                                </a>
+                                <span class="step">Step 2:</span>
+                                <div><label>Enter Your Reddit Username:</label></div>
+                                <div><input id="nsfwredditcommentusername"  type="text"/>
+                                    <a href="javascript:void(0)" onclick="setClaim(this.parentNode.querySelector('input'));" class="btn secondary">
+                                    Done
+                                    </a>
+                                </div>
+                                <div>
+                                    <small>This information will be checked at the end of the giveaway.</small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+</div>
+<script>
+    // dom content loaded:
+    document.addEventListener('DOMContentLoaded', function() {
+        if(!userLoggedIn){
+            // try local storage
+            if(localStorage.getItem('giveaway_id') && localStorage.getItem('giveaway_id') === currentGiveawayId.toString()){
+                let localToken = localStorage.getItem("token");
+                if(localToken){
+                    tryLoginWithJWT(localToken, true);
+                    emailDone = localStorage.getItem("email_done") === "true";
+                }
+            }
+        }
+        if(userLoggedIn){
+            document.getElementById("loginrequired").style.display = "none";
+            document.getElementById("loggedin").innerHTML = "You are logged in!";
+            if(emailDone){
+                document.getElementById("mailjoin").style.display = "none";
+            }
+            postClaim("a","b");
+        }
+        else{
+            axios.post("https://api.chatficlab.com/giveaway-entry-count").then((response) => {
+                if (response.status == 200) {
+                    document.getElementById('totalentries').innerHTML = (response.data.entries - 12).toLocaleString();
+                }
+            });
+        }
+    });
+</script>
+<script>
+    function setMethod(methodElement){
+        if(methodElement.classList.contains("selected")){
+            methodElement.classList.toggle("selected");
+            methodElement.querySelector('.amount').innerHTML='+1';
+            if(methodElement.classList.contains("claimed")){
+                methodElement.querySelector('.amount').innerHTML='<i class="fa-solid fa-check"></i>';
+            }
+            return;
+        }
+        // set all methods to normal by looping queryselectorall
+        let methods = document.querySelectorAll(".method");
+        for(let i = 0; i < methods.length; i++){
+            methods[i].classList.remove("selected");
+            methods[i].querySelector('.amount').innerHTML='+1';
+            if(methods[i].classList.contains("claimed")){
+                methods[i].querySelector('.amount').innerHTML='<i class="fa-solid fa-check"></i>';
+            }
+        }
+        methodElement.classList.toggle("selected");
+        methodElement.querySelector('.amount').innerHTML='x';
+    }
+</script>
+<script>
+    function getParentMethod(el){
+        // this will be recursive and fnd the closest parent with class "method":
+        if(el.classList.contains("method")){
+            return el;
+        }
+        return getParentMethod(el.parentNode);
+    }
+    function processEntryState(responseData){
+        console.log(typeof responseData);
+        console.log(responseData);
+        const responseKeys = Object.keys(responseData);
+        let myEntries = 0;
+        for(let i = 0; i < responseKeys.length; i++){
+            if(claimTypeToID.hasOwnProperty(responseKeys[i])){
+                if(responseData[responseKeys[i]] && responseData[responseKeys[i]] != null){
+                    myEntries++;
+                    let myEl = document.getElementById(claimTypeToID[responseKeys[i]]);
+                    //check if input element
+                    if(myEl.tagName == "INPUT"){
+                        myEl.value = responseData[responseKeys[i]];
+                    }
+                    let xParentNode = getParentMethod(myEl);
+                    if(!xParentNode.classList.contains("claimed")){
+                    xParentNode.classList.add("claimed");
+                    xParentNode.querySelector('.amount').innerHTML='<i class="fa-solid fa-check"></i>';
+                    }
+                }
+            }
+        }
+        document.getElementById('yourentries').innerHTML = myEntries;
+        document.getElementById('totalentries').innerHTML = ((responseData.entries - 12) + myEntries).toLocaleString();
+    }
+</script>
+<script>
+</script>
+<script>
+    function postClaim(claimTypeString, claimValue) {
+        if(userLoggedIn && token){
+            axios.post("https://api.chatficlab.com/giveaway-claim?type=" + claimTypeString + "&value=" + claimValue + "&token=" + token).then((response) => {
+                if (response.status == 200) {
+                    processEntryState(response.data);
+                }
+            }).catch((error) => {
+                if (error.response) {
+                    console.log(typeof error.response.data);
+                    alert("ERROR (" + error.response.status + ") " + JSON.stringify(error.response.data.detail));
+                } else if (error.request) {
+                      alert(error.response.data + " (" + error.response.status + ")");
+                } else {
+                  // Something happened in setting up the request that triggered an Error
+                  alert(error.message);
+                }
+            });
+        }
+    }
+</script>
+<script>
+    function setClaim(el){
+        let claimTypeString=null;
+        let claimValue=null;
+        visitIDs=["storyclick","patreonclick","redditclick"];
+        // check if it has an id:
+        if(el.id && IDToClaimType.hasOwnProperty(el.id)){
+            claimTypeString = IDToClaimType[el.id];
+            if(visitIDs.includes(el.id)){
+                claimValue = "1";
+            }
+            else{
+                claimValue = el.value;
+            }
+            console.log(claimTypeString);
+            console.log(claimValue);
+            let parentMethod = getParentMethod(el);
+            parentMethod.classList.remove('selected');
+            if(parentMethod.classList.contains("claimed")){
+              parentMethod.querySelector('.amount').innerHTML='<i class="fa-solid fa-check"></i>';
+            }
+            else{
+              parentMethod.querySelector('.amount').innerHTML='+1';
+            }
+            postClaim(claimTypeString, claimValue);
+        }
+
+    }
+</script>
+{% endblock %}
