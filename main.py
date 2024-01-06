@@ -35,7 +35,7 @@ app.add_middleware(
 load_dotenv()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-# app = FastAPI()
+app = FastAPI()
 app.include_router(stories.router)
 app.include_router(giveaways.router)
 
