@@ -96,7 +96,7 @@ sudo systemctl restart nginx
 
 ```bash
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d chatficdb.top
+sudo certbot --nginx -d chatfics.org
 ```
 
 This will change your sites-available file too. Make sure to check its contents
