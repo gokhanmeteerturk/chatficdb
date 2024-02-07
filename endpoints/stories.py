@@ -113,6 +113,7 @@ async def get_stories(
         include_upcoming: int = Query(0,
                                       description="Include upcoming releases")
 ):
+    series_info = None
     per_page = 60
     try:
         skip = (page - 1) * per_page
@@ -135,6 +136,7 @@ async def get_stories(
                 series_id=None
                 for story in stories:
                     series_id = story.series_id
+                    series_info = await story.series
                 if series_id:
                     stories_query = stories_query.filter(
                         series__idseries=series_id
@@ -208,6 +210,9 @@ async def get_landing():
 @router.get("/series")
 async def get_series(
         page: int = Query(1, description="Page number, default: 1"),
+        storyGlobalId: Optional[str] = Query(
+            None, description="Story Global ID for series lookup"
+        ),
         sort_by: str = Query("new", description="Sort by 'new' or 'name"),
         tags_required: List[str] = Query([], description="Required tags"),
 ):
@@ -216,8 +221,14 @@ async def get_series(
     try:
         skip = (page - 1) * per_page
         limit = per_page
-
-        series_query = models.Series.all()
+        series_query = None
+        if storyGlobalId:
+            stories = await models.Story.filter(
+                storyGlobalId=storyGlobalId).limit(1)
+            for story in stories:
+                series_query = models.Series.filter(idseries=story.series_id).all()
+        else:
+            series_query = models.Series.all()
 
         if tags_required:
             tags_required = tags_required[:3]
