@@ -105,12 +105,14 @@ async def get_stories(
         seriesGlobalId: Optional[str] = Query(
             None, description="Series global id"
         ),
+        from_series_of_story: Optional[str] = Query(
+            None, description="Story Global ID for series lookup"
+        ),
         sort_by: str = Query("date", description="Sort by 'date' or 'name"),
         tags_required: List[str] = Query([], description="Required tags"),
         include_upcoming: int = Query(0,
                                       description="Include upcoming releases")
 ):
-    print(seriesGlobalId)
     per_page = 60
     try:
         skip = (page - 1) * per_page
@@ -126,6 +128,17 @@ async def get_stories(
             stories_query = stories_query.filter(
                 series__seriesGlobalId=seriesGlobalId
             )
+        else:
+            if from_series_of_story:
+                stories = await models.Story.filter(
+                    storyGlobalId=from_series_of_story).limit(1)
+                series_id=None
+                for story in stories:
+                    series_id = story.series_id
+                if series_id:
+                    stories_query = stories_query.filter(
+                        series__idseries=series_id
+                    )
 
         if tags_required:
             tags_required = tags_required[:3]
