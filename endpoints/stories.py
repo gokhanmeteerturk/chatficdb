@@ -384,6 +384,7 @@ async def build_rss_feed():
     # Get the 5 most recent published stories
     recent_stories = await models.Story.filter(
         release_date__lte=datetime.now(),
+        exclude_from_rss=False
     ).order_by('-release_date').limit(5).prefetch_related('series', 'series__tags_rel', 'series__tags_rel__tag')
 
     server_name = settings.SERVER_METADATA.get("name","")
