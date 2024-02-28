@@ -69,6 +69,7 @@ class Story(Model):
     storyGlobalId = fields.CharField(max_length=45, null=True)
     series = fields.ForeignKeyField('models.Series', related_name='stories')
     release_date = fields.DatetimeField(auto_now_add=True, default=datetime.now)
+    exclude_from_rss = fields.BooleanField(default=False, null=False)
 
     # this won't be hashed since it is not really a value with
     # critical security. this will usually be shared with patreon supporters
