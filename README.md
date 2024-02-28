@@ -158,6 +158,13 @@ Run the development server with uvicorn:
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-include '*.html' --reload-include '.env'
 ```
 
+You'll also need to create and apply migrations manually each time you make a change to the models:
+
+```bash
+aerich migrate
+aerich upgrade
+```
+
 ## SPONSORS
 
 
