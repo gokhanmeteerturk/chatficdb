@@ -1,22 +1,20 @@
 import json
-import math
+import logging
 import os
+from datetime import datetime, timedelta
 from typing import List, Optional
 
+import feedgenerator  # Install it using: pip install feedgenerator
+import pytz
 from fastapi import APIRouter, HTTPException, Query
 from fastapi_utilities import repeat_every
-from fastapi.responses import FileResponse
+from pydantic.types import PositiveInt, NonNegativeInt
+from starlette.responses import FileResponse
+# import Q from tortoise orm:
+from tortoise.expressions import Subquery, RawSQL
 
 import settings
-import pytz
 from database import models
-import logging
-from datetime import datetime, timedelta
-from tortoise.functions import Count, Sum
-# import Q from tortoise orm:
-from tortoise.expressions import Q, Subquery
-
-import feedgenerator  # Install it using: pip install feedgenerator
 
 S3_LINK = settings.S3_LINK
 FEED_PATH = "/feed.xml"
@@ -93,6 +91,8 @@ async def get_server_metadata():
         meta["theme"] = {
             "primary": settings.THEME["primary"],
         }
+
+        meta["tags"] = dict(await models.Tag.all().values_list("idtag", "tag"))
         return meta
     except Exception as e:
         logging.error(e)
@@ -101,7 +101,7 @@ async def get_server_metadata():
 
 @router.get("/stories")
 async def get_stories(
-        page: int = Query(1, description="Page number, default: 1"),
+        page: NonNegativeInt = Query(1, description="Page number, default: 1"),
         seriesGlobalId: Optional[str] = Query(
             None, description="Series global id"
         ),
@@ -110,8 +110,8 @@ async def get_stories(
         ),
         sort_by: str = Query("date", description="Sort by 'date' or 'name"),
         tags_required: List[str] = Query([], description="Required tags"),
-        include_upcoming: int = Query(0,
-                                      description="Include upcoming releases")
+        include_upcoming: NonNegativeInt = Query(0,
+                                                 description="Include upcoming releases")
 ):
     series_info = None
     per_page = 60
@@ -133,7 +133,7 @@ async def get_stories(
             if from_series_of_story:
                 stories = await models.Story.filter(
                     storyGlobalId=from_series_of_story).limit(1)
-                series_id=None
+                series_id = None
                 for story in stories:
                     series_id = story.series_id
                     series_info = await story.series
@@ -209,7 +209,7 @@ async def get_landing():
 
 @router.get("/series")
 async def get_series(
-        page: int = Query(1, description="Page number, default: 1"),
+        page: NonNegativeInt = Query(1, description="Page number, default: 1"),
         storyGlobalId: Optional[str] = Query(
             None, description="Story Global ID for series lookup"
         ),
@@ -226,7 +226,8 @@ async def get_series(
             stories = await models.Story.filter(
                 storyGlobalId=storyGlobalId).limit(1)
             for story in stories:
-                series_query = models.Series.filter(idseries=story.series_id).all()
+                series_query = models.Series.filter(
+                    idseries=story.series_id).all()
         else:
             series_query = models.Series.all()
 
@@ -277,6 +278,60 @@ async def get_series(
     except Exception as e:
         logging.error(e)
         return {"isFound": False, "next": None, "page": page, "series": []}
+
+
+@router.get("/latest")
+async def get_latest_series(
+        offset: NonNegativeInt = Query(0, description="Offset, default: 0"),
+        exclude_tags: List[PositiveInt] = Query(None),
+        include_tags: List[PositiveInt] = Query(None)):
+    try:
+        offset = min(max(offset, 0), 500)
+        if not exclude_tags and not include_tags:
+            queryset = models.Series.all().order_by("-idseries").offset(
+                offset).limit(10)
+        else:
+            if exclude_tags:
+                if include_tags:
+                    all_tags = list(set(exclude_tags + include_tags))
+
+                    ex_text = ','.join(str(x) for x in exclude_tags)
+                    # in_text = ','.join(str(x) for x in include_tags)
+                    all_text = ','.join(str(x) for x in all_tags)
+
+                    sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude, COUNT(*) AS all_count FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ( {all_text} ) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING x_clude = 0 AND all_count = ( x_clude + {len(include_tags)} ) ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                else:
+                    ex_text = ','.join(str(x) for x in exclude_tags)
+                    sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING x_clude = 0 ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+            else:
+                if len(include_tags) == 1:
+                    sql = f"""(SELECT series_id FROM (SELECT sr.series_id FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id = {include_tags[0]} ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                else:
+                    in_text = ','.join(str(x) for x in include_tags)
+                    sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, COUNT(*) AS total FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ({in_text}) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING total = {len(include_tags)} ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+
+            queryset = models.Series.filter(idseries__in=RawSQL(sql)).order_by(
+                "-idseries").limit(10)
+
+        series = await models.SeriesWithRels_Pydantic.from_queryset(
+            queryset
+        )
+
+        if series:
+            for ix, single_series in enumerate(series):
+                series[ix] = single_series.model_dump()
+                del series[ix]["stories"]
+                del series[ix]["tags_rel"]
+            return {
+                "isFound": True,
+                "offset": offset,
+                "series": series,
+            }
+
+        raise Exception("No series found")
+    except Exception as e:
+        logging.error(e)
+        return {"isFound": False, "offset": offset, "series": []}
 
 
 @router.get("/program")
@@ -379,17 +434,18 @@ async def get_recent_stories_feed():
         return None
 
 
-
 async def build_rss_feed():
     # Get the 5 most recent published stories
     recent_stories = await models.Story.filter(
         release_date__lte=datetime.now(),
         exclude_from_rss=False
-    ).order_by('-release_date').limit(5).prefetch_related('series', 'series__tags_rel', 'series__tags_rel__tag')
+    ).order_by('-release_date').limit(5).prefetch_related('series',
+                                                          'series__tags_rel',
+                                                          'series__tags_rel__tag')
 
-    server_name = settings.SERVER_METADATA.get("name","")
-    server_url = settings.SERVER_METADATA.get("url","")
-    server_slug = settings.SERVER_METADATA.get("slug","")
+    server_name = settings.SERVER_METADATA.get("name", "")
+    server_url = settings.SERVER_METADATA.get("url", "")
+    server_slug = settings.SERVER_METADATA.get("slug", "")
     feed = feedgenerator.Rss201rev2Feed(
         title=f"{server_name} Chatfic Server RSS Feed",
         link=f"https://{server_url}/feed",
@@ -408,7 +464,6 @@ async def build_rss_feed():
             description=story.description,
             pubdate=story.release_date,
         )
-
 
     rss_file_path = "./feed.xml"
     with open(rss_file_path, 'w', encoding='utf-8') as rss_file:
