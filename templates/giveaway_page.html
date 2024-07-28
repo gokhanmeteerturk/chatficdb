@@ -127,11 +127,9 @@ function parseJwt (token) {
 {% endblock %}
 
 {% block content %}
-<h3 style="margin-top:80px !important;">Giveaway Is Completed!</h3>
-<p>
-    Winners will be announced on our <a style="color:white !important;text-decoration: underline !important;" href="https://discord.com/invite/hu5gRNFQTU">discord server</a>.
-</p>
-<div id="centered-div" style="display:none;">
+<!--<h3 style="margin-top:80px !important;">Giveaway Is Completed!</h3>-->
+<!-- <p>Winners will be announced on our <a style="color:white !important;text-decoration: underline !important;" href="https://discord.com/invite/hu5gRNFQTU">discord server</a>.</p> -->
+<div id="centered-div">
     <div class="header-meta">
         <div class="cell">
             <span id="yourentries" class="number">0</span>
@@ -400,19 +398,23 @@ function parseJwt (token) {
                  <div class="method" id="redditvisit">
                     <a href="javascript:void(0);" onclick="setMethod(this.parentNode);" class="methodbubble">
                         <span class="icon"><i class="fa-brands fa-reddit"></i></span>
-                        <span class="name">Visit This Post on Reddit</span>
+                        <span class="name">Upvote This Post on Reddit</span>
                         <span class="amount">+1</span>
                     </a>
                     <div class="expandable">
                         <div class="tac">
                             <span class="expandabletext">
                                 <a target="_blank" onauxclick="return linkClickedMiddle(event, 'redditclick')" onclick="return linkClicked('redditclick');" href="https://www.reddit.com/r/chatficlab/comments/190avkx/chatfic_lab_giveaway_get_one_of_3_premium/" class="btn">
-                                    Visit This Post on Reddit
+                                    Upvote This Post on Reddit
                                 </a>
                                 <div>&nbsp;</div>
                                 <a href="javascript:void(0)" onclick="setClaim(this);" id="redditclick" class="btn secondary hidden">
                                     Done
                                 </a>
+
+                                <div>
+                                    <small>Make sure to click Done in not more than 5 minutes after you upvote, since we track upvote count for validation.</small>
+                                </div>
                             </span>
                         </div>
                     </div>
@@ -553,7 +555,8 @@ Acceptance of Rules: By participating in the Sweepstakes, You have affirmatively
         else{
             axios.post("https://api.chatficlab.com/giveaway-entry-count").then((response) => {
                 if (response.status == 200) {
-                    document.getElementById('totalentries').innerHTML = ((response.data.entries - 12)/2).toLocaleString();
+                    //document.getElementById('totalentries').innerHTML = ((response.data.entries - 12)/2).toLocaleString();
+                    document.getElementById('totalentries').innerHTML = ((response.data.entries)/2).toLocaleString();
                 }
             });
         }
@@ -613,7 +616,8 @@ Acceptance of Rules: By participating in the Sweepstakes, You have affirmatively
             }
         }
         document.getElementById('yourentries').innerHTML = myEntries;
-        document.getElementById('totalentries').innerHTML = (((responseData.entries - 12)/2) + myEntries).toLocaleString();
+        //document.getElementById('totalentries').innerHTML = (((responseData.entries - 12)/2) + myEntries).toLocaleString();
+        document.getElementById('totalentries').innerHTML = (((responseData.entries)/2) + myEntries).toLocaleString();
     }
 </script>
 <script>
