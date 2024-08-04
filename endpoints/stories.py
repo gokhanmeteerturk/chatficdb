@@ -228,6 +228,7 @@ async def get_series(
             for story in stories:
                 series_query = models.Series.filter(
                     idseries=story.series_id).all()
+
         else:
             series_query = models.Series.all()
 
@@ -269,6 +270,7 @@ async def get_series(
                 next_page = page + 1
             return {
                 "isFound": True,
+                "offset": skip,
                 "next": next_page,
                 "page": page,
                 "series": series,
@@ -277,7 +279,7 @@ async def get_series(
         raise Exception("No series found")
     except Exception as e:
         logging.error(e)
-        return {"isFound": False, "next": None, "page": page, "series": []}
+        return {"isFound": False, "offset": 0, "next": None, "page": page, "series": []}
 
 
 @router.get("/latest")
