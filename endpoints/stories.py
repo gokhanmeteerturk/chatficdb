@@ -290,8 +290,9 @@ async def get_latest_series(
     try:
         offset = min(max(offset, 0), 500)
         if not exclude_tags and not include_tags:
-            queryset = models.Series.all().order_by("-idseries").offset(
-                offset).limit(10)
+            queryset = models.Series.filter(
+                stories__release_date__lt=datetime.now()
+            ).order_by("-idseries").distinct().offset(offset).limit(10)
         else:
             if exclude_tags:
                 if include_tags:
