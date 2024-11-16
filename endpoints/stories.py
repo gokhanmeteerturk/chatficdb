@@ -26,6 +26,29 @@ logging.getLogger().setLevel(
     logging.INFO if settings.DEBUG else logging.WARNING)
 
 
+@router.get('/item')
+async def check_item_exists(item_id: str):
+    """
+    Simple endpoint to verify if a story exists.
+    Returns 200 if exists, 404 if not.
+    Uses Tortoise ORM to query Story model.
+    """
+    try:
+        exists = await models.Series.exists(
+            seriesGlobalId=item_id
+        )
+
+        if not exists:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+        return {"exists": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Item check error: {e}")
+        raise HTTPException(status_code=500, detail="Error checking item")
+
 @router.get("/story")
 async def get_story(storyGlobalId: str):
     try:
