@@ -121,6 +121,38 @@ async def get_server_metadata():
         logging.error(e)
         return {}
 
+@router.get("/series/lookup")
+async def lookup_series_by_stories(
+        story_ids: List[str] = Query(None)
+    ):
+    """
+    Endpoint to return seriesGlobalId for given storyGlobalId values.
+    """
+    try:
+        # Fetch all stories matching the provided storyGlobalId values
+        stories = await models.Story.filter(storyGlobalId__in=story_ids).prefetch_related("series")
+
+        if not stories:
+            return {"isFound": False, "message": "No matching series found", "data": {}}
+
+        # Create a dictionary mapping storyGlobalId to seriesGlobalId
+        story_to_series = {
+            story.storyGlobalId: story.series.seriesGlobalId
+            for story in stories if story.series
+        }
+
+        return {
+            "isFound": True,
+            "data": story_to_series
+        }
+    except Exception as e:
+        logging.error(f"Error in lookup_series_by_stories: {e}")
+        return {
+            "isFound": False,
+            "message": "An error occurred while processing the request",
+            "data": {}
+        }
+
 
 @router.get("/stories")
 async def get_stories(
