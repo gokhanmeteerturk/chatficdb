@@ -42,6 +42,10 @@ TORTOISE_CONFIG = {
                 'user': DATABASE_SETTINGS.get('user'),
                 'password': DATABASE_SETTINGS.get('password'),
                 'database': DATABASE_SETTINGS.get('database'),
+                'connect_timeout': 60,
+                'minsize': 1,
+                'maxsize': 10,
+                'pool_recycle': 3600,  # Recycle connections after 1 hour
             }
         },
     },
