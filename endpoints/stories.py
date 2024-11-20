@@ -343,16 +343,13 @@ async def get_series(
 
 @router.get("/latest")
 @atomic()  # This ensures transaction handling
+
 async def get_latest_series(
         offset: NonNegativeInt = Query(0, description="Offset, default: 0"),
         exclude_tags: List[PositiveInt] = Query(None),
         include_tags: List[PositiveInt] = Query(None)):
-
-    # Limit offset to prevent excessive queries
     offset = min(max(offset, 0), 500)
-
     try:
-        # Implement retry logic for connection issues
         for attempt in range(3):  # Try up to 3 times
             try:
                 if not exclude_tags and not include_tags:
@@ -363,61 +360,41 @@ async def get_latest_series(
                     if exclude_tags:
                         if include_tags:
                             all_tags = list(set(exclude_tags + include_tags))
+
                             ex_text = ','.join(str(x) for x in exclude_tags)
+                            # in_text = ','.join(str(x) for x in include_tags)
                             all_text = ','.join(str(x) for x in all_tags)
 
-                            sql = f"""(
-                                SELECT series_id FROM (
-                                    SELECT 
-                                        sr.series_id,
-                                        SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude,
-                                        COUNT(*) AS all_count
-                                    FROM (
-                                        SELECT sr.*,
-                                        (
-                                            SELECT MIN(st.idstory) AS stories_aired
-                                            FROM stories AS st
-                                            WHERE st.series_id = sr.series_id
-                                            AND st.release_date < NOW()
-                                            LIMIT 1
-                                        ) AS stories_aired
-                                        FROM series_tags_rel AS sr
-                                        WHERE sr.tag_id IN ({all_text})
-                                        ORDER BY NULL
-                                    ) AS sr
-                                    WHERE sr.stories_aired IS NOT NULL
-                                    GROUP BY sr.series_id
-                                    HAVING x_clude = 0 AND all_count = {len(include_tags)}
-                                    ORDER BY sr.id DESC
-                                    LIMIT 10 OFFSET {offset}
-                                ) AS ss
-                            )"""
+                            sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude, COUNT(*) AS all_count FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ( {all_text} ) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING x_clude = 0 AND all_count = ( x_clude + {len(include_tags)} ) ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
                         else:
-                            # Similar SQL formatting for other conditions...
-                            # (keeping the existing logic but with better formatting)
-                            pass
+                            ex_text = ','.join(str(x) for x in exclude_tags)
+                            sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING x_clude = 0 ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                    else:
+                        if len(include_tags) == 1:
+                            sql = f"""(SELECT series_id FROM (SELECT sr.series_id FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id = {include_tags[0]} ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                        else:
+                            in_text = ','.join(str(x) for x in include_tags)
+                            sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, COUNT(*) AS total FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ({in_text}) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING total = {len(include_tags)} ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
 
                     queryset = models.Series.filter(idseries__in=RawSQL(sql)).order_by(
                         "-idseries").limit(10)
 
-                series = await models.SeriesWithRels_Pydantic.from_queryset(queryset)
+                series = await models.SeriesWithRels_Pydantic.from_queryset(
+                    queryset
+                )
 
                 if series:
-                    result = []
-                    for single_series in series:
-                        series_data = single_series.model_dump()
-                        del series_data["stories"]
-                        del series_data["tags_rel"]
-                        result.append(series_data)
-
+                    for ix, single_series in enumerate(series):
+                        series[ix] = single_series.model_dump()
+                        del series[ix]["stories"]
+                        del series[ix]["tags_rel"]
                     return {
                         "isFound": True,
                         "offset": offset,
-                        "series": result
+                        "series": series,
                     }
 
                 raise Exception("No series found")
-
             except OperationalError as e:
                 if "Packet sequence number wrong" in str(e) and attempt < 2:
                     # Log the retry attempt
@@ -425,10 +402,10 @@ async def get_latest_series(
                     await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
                     continue
                 raise
-
     except Exception as e:
         logging.error(f"Error in get_latest_series: {str(e)}", exc_info=True)
         return {"isFound": False, "offset": offset, "series": []}
+
 
 @router.get("/program")
 async def get_current_week_program():
