@@ -18,23 +18,29 @@ from tortoise.transactions import atomic
 
 import settings
 from database import models
+from endpoints.response_models import ItemExistsResponse, StoryResponse, \
+    ServerMetadataResponse, MetadataTheme, SeriesLookupResponse, \
+    StoryBasicModel, StoriesResponse, SeriesBasicModel, SeriesResponse, \
+    LatestSeriesResponse, WeeklyProgramResponse
 
 S3_LINK = settings.S3_LINK
 FEED_PATH = "/feed.xml"
 
 router = APIRouter()
 
-cached_weekly_program_path = "./cached_program_weekly.json"
+CACHED_WEEKLY_PROGRAM_PATH = "./cached_program_weekly.json"
 logging.getLogger().setLevel(
     logging.INFO if settings.DEBUG else logging.WARNING)
 
 
-@router.get('/item')
-async def check_item_exists(item_id: str):
+@router.get('/item', response_model=ItemExistsResponse, tags=["misc"])
+async def check_item_exists(item_id: str = Query("", description="Series ID")) -> ItemExistsResponse:
     """
-    Simple endpoint to verify if a story exists.
+    Simple endpoint to verify if a series exists.
     Returns 200 if exists, 404 if not.
-    Uses Tortoise ORM to query Story model.
+
+    This endpoint is called /items because in the future,
+    it will be used to check different types of items as well.
     """
     try:
         exists = await models.Series.exists(
@@ -44,16 +50,18 @@ async def check_item_exists(item_id: str):
         if not exists:
             raise HTTPException(status_code=404, detail="Item not found")
 
-        return {"exists": True}
+        return ItemExistsResponse(exists=True)
 
     except HTTPException:
         raise
     except Exception as e:
         logging.error(f"Item check error: {e}")
-        raise HTTPException(status_code=500, detail="Error checking item")
+        raise HTTPException(status_code=500,
+                            detail="Error checking item") from e
 
-@router.get("/story")
-async def get_story(storyGlobalId: str):
+
+@router.get("/story", response_model=StoryResponse, tags=["stories & series"])
+async def get_story(storyGlobalId: str = Query("", description="Story's Global ID")) -> StoryResponse:
     try:
         if settings.SHOW_PUBLISHED_ONLY:
             story = models.Story.filter(
@@ -64,42 +72,47 @@ async def get_story(storyGlobalId: str):
                 storyGlobalId=storyGlobalId
             ).limit(1)
         result = await models.Story_Pydantic.from_queryset(story)
-        if result:
-            row = result[0]
-            return {
-                "isFound": True,
-                "title": row.title,
-                "description": row.description,
-                "author": row.author,
-                "patreonusername": row.patreonusername,
-                "cdn": S3_LINK,
-            }
-        else:
+
+        if not result:
             story = models.Story.filter(
                 storyGlobalId=storyGlobalId
             ).limit(1)
             result = await models.Story_Pydantic.from_queryset(story)
-            if result:
-                # TODO: let access to user with story pass
-                #     row = result[0]
-                raise HTTPException(status_code=404, detail="Not Published")
 
-        raise HTTPException(status_code=404, detail="Not found")
+            if not result:
+                raise HTTPException(status_code=404, detail="Not found")
+
+            # TODO: let access to user with story pass
+            #     row = result[0]
+            # 403: FORBIDDEN
+            raise HTTPException(status_code=403, detail="Not Published")
+
+        if result:
+            row = result[0]
+            return StoryResponse(
+                isFound=True,
+                title=row.title,
+                description=row.description,
+                author=row.author,
+                patreonusername=row.patreonusername,
+                cdn=S3_LINK
+            )
+
     except Exception as e:
         logging.error(e)
-        return {
-            "isFound": False,
-            "title": "",
-            "description": "",
-            "author": "",
-            "patreonusername": "",
-            "cdn": "",
-        }
+        return StoryResponse(
+            isFound=False,
+            title="",
+            description="",
+            author="",
+            patreonusername="",
+            cdn=""
+        )
 
 
 # create another endpoint that will print out server metadata:
-@router.get("/")
-async def get_server_metadata():
+@router.get("/", response_model=ServerMetadataResponse, tags=["misc"])
+async def get_server_metadata() -> ServerMetadataResponse:
     """
     Get the server metadata.
 
@@ -114,52 +127,62 @@ async def get_server_metadata():
     """
     try:
         meta = settings.SERVER_METADATA
-        meta["theme"] = {
-            "primary": settings.THEME["primary"],
-        }
 
-        meta["tags"] = dict(await models.Tag.all().values_list("idtag", "tag"))
-        return meta
+        theme_data = {"primary": settings.THEME["primary"]}
+        tags_data = dict(await models.Tag.all().values_list("idtag", "tag"))
+
+        return ServerMetadataResponse(
+            **meta,
+            theme=MetadataTheme(**theme_data),
+            tags=tags_data
+        )
     except Exception as e:
         logging.error(e)
-        return {}
+        return ServerMetadataResponse(theme=MetadataTheme(primary=""), tags={})
 
-@router.get("/series/lookup")
+
+@router.get("/series/lookup", response_model=SeriesLookupResponse, tags=["stories & series"])
 async def lookup_series_by_stories(
-        story_ids: List[str] = Query(None)
-    ):
+        story_ids: List[str] = Query(None, description="List of storyGlobalId values")
+) -> SeriesLookupResponse:
     """
     Endpoint to return seriesGlobalId for given storyGlobalId values.
     """
     try:
         # Fetch all stories matching the provided storyGlobalId values
-        stories = await models.Story.filter(storyGlobalId__in=story_ids).prefetch_related("series")
+        stories = await models.Story.filter(
+            storyGlobalId__in=story_ids).prefetch_related("series")
 
         if not stories:
-            return {"isFound": False, "message": "No matching series found", "data": {}}
-
+            return SeriesLookupResponse(
+                isFound=False,
+                message="No matching series found",
+                data={}
+            )
         # Create a dictionary mapping storyGlobalId to seriesGlobalId
         story_to_series = {
             story.storyGlobalId: story.series.seriesGlobalId
             for story in stories if story.series
         }
 
-        return {
-            "isFound": True,
-            "data": story_to_series
-        }
+        return SeriesLookupResponse(
+            isFound=True,
+            data=story_to_series
+        )
     except Exception as e:
         logging.error(f"Error in lookup_series_by_stories: {e}")
-        return {
-            "isFound": False,
-            "message": "An error occurred while processing the request",
-            "data": {}
-        }
+        return SeriesLookupResponse(
+            isFound=False,
+            message="An error occurred while processing the request",
+            data={}
+        )
 
 
-@router.get("/stories")
+@router.get("/stories", response_model=StoriesResponse,
+            tags=["stories & series"])
 async def get_stories(
-        page: NonNegativeInt = Query(1, description="Page number, default: 1"),
+        page: NonNegativeInt = Query(1, description="Page number,"
+                                                    " default: 1"),
         seriesGlobalId: Optional[str] = Query(
             None, description="Series global id"
         ),
@@ -167,11 +190,14 @@ async def get_stories(
             None, description="Story Global ID for series lookup"
         ),
         sort_by: str = Query("date", description="Sort by 'date' or 'name"),
-        tags_required: List[str] = Query([], description="Required tags"),
+        tags_required: List[str] = Query([], description="Required tag "
+                                                         "'names'. These are "
+                                                         "limited to 3 tags."),
         include_upcoming: NonNegativeInt = Query(0,
-                                                 description="Include upcoming releases")
-):
-    series_info = None
+                                                 description="Include upcoming"
+                                                             " releases")
+) -> StoriesResponse:
+
     per_page = 60
     try:
         skip = (page - 1) * per_page
@@ -194,7 +220,6 @@ async def get_stories(
                 series_id = None
                 for story in stories:
                     series_id = story.series_id
-                    series_info = await story.series
                 if series_id:
                     stories_query = stories_query.filter(
                         series__idseries=series_id
@@ -202,7 +227,6 @@ async def get_stories(
 
         if tags_required:
             tags_required = tags_required[:3]
-            print(tags_required)
             stories_query = stories_query.filter(
                 series__tags_rel__tag__tag__in=tags_required
             )
@@ -215,35 +239,47 @@ async def get_stories(
             raise HTTPException(
                 status_code=400, detail="Invalid sort_by value"
             )
-        print(stories_query.sql())
         stories = await models.Story_Pydantic.from_queryset(
             stories_query.offset(skip).limit(limit + 1)
         )
 
         if stories:
-            next = None
-            if len(stories) == limit + 1:
-                next = page + 1
+            next_page = page + 1 if len(stories) == limit + 1 else None
+            story_list = [
+                StoryBasicModel(
+                    **story.model_dump(),
+                    cdn=S3_LINK
+                ) for story in stories[:limit]
+            ]
 
-            for ix, story in enumerate(stories):
-                stories[ix] = story.model_dump()
-                stories[ix]["cdn"] = S3_LINK
-
-            return {
-                "isFound": True,
-                "next": next,
-                "page": page,
-                "stories": stories[:limit],
-            }
+            return StoriesResponse(
+                isFound=True,
+                next=next_page,
+                page=page,
+                stories=story_list
+            )
         raise Exception("No stories found")
     except Exception as e:
         logging.error(e)
-        return {"isFound": False, "stories": []}
+        return StoriesResponse(
+            isFound=False,
+            next=None,
+            page=page,
+            stories=[]
+        )
 
 
-@router.get("/landing")
-@atomic()  # This ensures transaction handling
+@router.get("/landing", tags=["misc"])
+@atomic()
 async def get_landing():
+    """
+    Endpoint to get server metadata along with latest series.
+    Good for landing pages. Chatfic Lab's /cfs-slug server pages use this endpoint.
+
+    Returns:
+        The server metadata as a dictionary and latest series as a
+        list with key "series".
+    """
     try:
         meta = settings.SERVER_METADATA
         meta["theme"] = {
@@ -266,15 +302,18 @@ async def get_landing():
     return meta
 
 
-@router.get("/series")
+@router.get("/series", response_model=SeriesResponse, tags=["stories & series"])
 async def get_series(
-        page: NonNegativeInt = Query(1, description="Page number, default: 1"),
+        page: NonNegativeInt = Query(1, description="Page number,"
+                                                    " default: 1"),
         storyGlobalId: Optional[str] = Query(
             None, description="Story Global ID for series lookup"
         ),
-        sort_by: str = Query("new", description="Sort by 'new' or 'name"),
-        tags_required: List[str] = Query([], description="Required tags"),
-):
+        sort_by: str = Query("new",
+                             description="Sort by 'new' or 'name"),
+        tags_required: List[str] = Query([],
+                                         description="Required tags"),
+) -> SeriesResponse:
     per_page = 60
     page = min(page, 20)
     try:
@@ -320,34 +359,52 @@ async def get_series(
             series_query.offset(skip).limit(limit + 1)
         )
         if series:
-            for ix, single_series in enumerate(series):
-                series[ix] = single_series.model_dump()
-                del series[ix]["stories"]
-                del series[ix]["tags_rel"]
-            next_page = None
-            if len(series) == limit + 1:
-                next_page = page + 1
-            return {
-                "isFound": True,
-                "offset": skip,
-                "next": next_page,
-                "page": page,
-                "series": series,
-            }
+            next_page = page + 1 if len(series) == limit + 1 else None
+            series_list = [
+                SeriesBasicModel(**series_item.model_dump())
+                for series_item in series[:limit]
+            ]
+
+            return SeriesResponse(
+                isFound=True,
+                offset=skip,
+                next=next_page,
+                page=page,
+                series=series_list
+            )
 
         raise Exception("No series found")
+
     except Exception as e:
         logging.error(e)
-        return {"isFound": False, "offset": 0, "next": None, "page": page, "series": []}
+        return SeriesResponse(
+            isFound=False,
+            offset=0,
+            next=None,
+            page=page,
+            series=[]
+        )
 
 
-@router.get("/latest")
-@atomic()  # This ensures transaction handling
-
+@router.get("/latest", response_model=LatestSeriesResponse, tags=["stories & series"])
+@atomic()
 async def get_latest_series(
-        offset: NonNegativeInt = Query(0, description="Offset, default: 0"),
-        exclude_tags: List[PositiveInt] = Query(None),
-        include_tags: List[PositiveInt] = Query(None)):
+        offset: NonNegativeInt = Query(0,
+                                       description="Offset, default: 0"),
+        exclude_tags: List[PositiveInt] = Query(None, description="Tag ids to exclude, optional. You can retrieve them from '/'"),
+        include_tags: List[PositiveInt] = Query(None, description="Tag ids to include, optional. You can retrieve them from '/'")) -> LatestSeriesResponse:
+    """
+    Endpoint to get latest series (no metadata).
+
+    Args:
+        offset: Offset, default: 0
+        exclude_tags: Tag ids to exclude, optional
+        include_tags: Tag ids to include, optional
+
+    Returns:
+        List of series
+
+    """
     offset = min(max(offset, 0), 500)
     try:
         for attempt in range(3):  # Try up to 3 times
@@ -376,7 +433,8 @@ async def get_latest_series(
                             in_text = ','.join(str(x) for x in include_tags)
                             sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, COUNT(*) AS total FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ({in_text}) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING total = {len(include_tags)} ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
 
-                    queryset = models.Series.filter(idseries__in=RawSQL(sql)).order_by(
+                    queryset = models.Series.filter(
+                        idseries__in=RawSQL(sql)).order_by(
                         "-idseries").limit(10)
 
                 series = await models.SeriesWithRels_Pydantic.from_queryset(
@@ -384,43 +442,64 @@ async def get_latest_series(
                 )
 
                 if series:
-                    for ix, single_series in enumerate(series):
-                        series[ix] = single_series.model_dump()
-                        del series[ix]["stories"]
-                        del series[ix]["tags_rel"]
-                    return {
-                        "isFound": True,
-                        "offset": offset,
-                        "series": series,
-                    }
+                    series_list = [
+                        SeriesBasicModel(**series_item.dict())
+                        for series_item in series
+                    ]
+
+                    return LatestSeriesResponse(
+                        isFound=True,
+                        offset=offset,
+                        series=series_list
+                    )
 
                 raise Exception("No series found")
+
             except OperationalError as e:
                 if "Packet sequence number wrong" in str(e) and attempt < 2:
                     # Log the retry attempt
-                    logging.warning(f"Retrying query due to sequence number error (attempt {attempt + 1})")
-                    await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                    logging.warning(
+                        f"Retrying query due to sequence number error (attempt {attempt + 1})")
+                    await asyncio.sleep(
+                        0.5 * (attempt + 1))  # Exponential backoff
                     continue
                 raise
     except Exception as e:
         logging.error(f"Error in get_latest_series: {str(e)}", exc_info=True)
-        return {"isFound": False, "offset": offset, "series": []}
+        return LatestSeriesResponse(
+            isFound=False,
+            offset=offset,
+            series=[]
+        )
 
+@router.get("/program", response_model=WeeklyProgramResponse,
+            tags=["misc"])
+async def get_current_week_program() -> WeeklyProgramResponse:
+    """
+    Get the current weekly program.
 
-@router.get("/program")
-async def get_current_week_program():
+    Returns:
+        WeeklyProgramResponse: The current weekly program.
+
+    """
     # using FileResponse wouldn't help when we switch to a proper cache. So we'll load the json instead:
     cached_program = await get_cached_weekly_program()
 
-    if cached_program:
-        return {"status": "success", "data": cached_program}
-    else:
-        return {"status": "error", "message": "Program not available."}
+    if not cached_program:
+        return WeeklyProgramResponse(
+            status="error",
+            message="Program not available."
+        )
+
+    return WeeklyProgramResponse(
+        status="success",
+        data=cached_program
+    )
 
 
 async def get_cached_weekly_program():
     try:
-        with open(cached_weekly_program_path, "r") as file:
+        with open(CACHED_WEEKLY_PROGRAM_PATH, "r") as file:
             cached_program = json.load(file)
         logging.info("Received weekly program from cache")
         return cached_program
@@ -480,7 +559,7 @@ async def build_weekly_program():
                 "seriesGlobalId": series_global_id
             })
 
-        with open(cached_weekly_program_path, 'w', encoding='utf-8') as f:
+        with open(CACHED_WEEKLY_PROGRAM_PATH, 'w', encoding='utf-8') as f:
             json.dump(response_data, f, ensure_ascii=False, default=str)
             f.flush()
         return response_data
@@ -491,7 +570,7 @@ async def build_weekly_program():
         # Handle exceptions and log errors
 
 
-@router.get("/feed.xml", response_class=FileResponse)
+@router.get("/feed.xml", response_class=FileResponse, tags=["misc"])
 async def get_recent_stories_feed():
     try:
         with open("feed.xml", "r") as file:
@@ -543,7 +622,6 @@ async def build_rss_feed():
         feed.write(rss_file, 'utf-8')
         rss_file.flush()
         os.fsync(rss_file)
-
 
 @router.on_event("startup")
 @repeat_every(seconds=60)  # 1 minute

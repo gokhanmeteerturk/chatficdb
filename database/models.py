@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
 import pytz
 from tortoise import Model, fields, Tortoise
 # noinspection PyPackageRequirements

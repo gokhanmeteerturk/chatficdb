@@ -1,11 +1,10 @@
-# settings.py
 import os
 from dotenv import load_dotenv
 
 from helpers.utils import str_to_bool
 
-CHATFICDB_VERSION_NAME = "v0.9.0"
-CHATFICDB_VERSION_NUMBER = 900
+CHATFICDB_VERSION_NAME = "v0.9.1"
+CHATFICDB_VERSION_NUMBER = 901
 
 load_dotenv()
 
@@ -20,8 +19,14 @@ SERVER_METADATA = {
     "version": {
         "name": CHATFICDB_VERSION_NAME,
         "no": CHATFICDB_VERSION_NUMBER
+    },
+    "contact": {
+        "name": os.getenv('CONTACT_NAME'),
+        "url": os.getenv('CONTACT_URL'),
+        "email": os.getenv('CONTACT_EMAIL'),
     }
 }
+
 
 DATABASE_SETTINGS = {
     "user": os.getenv("DATABASE_USER"),
