@@ -167,9 +167,6 @@ aerich upgrade
 
 ## SPONSORS
 
-
-[Jetbrains](https://www.jetbrains.com/): Jetbrains is providing chatficdb with an OS license for All Products Pack
-
 [Sentry](https://sentry.io/welcome): Chatficdb is a beneficiary of Sentry's Open-Source Sponsorship Plan
 
 ## CONTRIBUTING
