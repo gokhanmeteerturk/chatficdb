@@ -10,3 +10,19 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      - ./queue_db:/app/huey_db  # Mount the specific Huey DB folder to the container
+
+  huey_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command: ["sh", "-c", "sleep 10 && python huey_consumer.py tasks.huey"] # waits for potential migrations
+    depends_on:
+      - app
+    volumes:
+      - ./queue_db:/app/huey_db  # Mount the specific Huey DB folder to the container
+

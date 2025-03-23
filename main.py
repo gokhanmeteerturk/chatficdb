@@ -11,6 +11,8 @@ from tortoise.contrib.fastapi import register_tortoise
 
 from endpoints import stories, giveaways
 
+from helpers.tasks import run_sentiment_analysis, huey
+
 import settings
 
 app = FastAPI()
@@ -65,6 +67,13 @@ app.include_router(giveaways.router)
 
 S3_LINK = settings.S3_LINK
 
+@app.get("/test_queue")
+async def test_queue(text: str):
+    run_sentiment_analysis(5)
+    run_sentiment_analysis(6)
+    run_sentiment_analysis(7)
+    run_sentiment_analysis(8)
+    return {"story_id": 5}
 
 @app.get("/submit", response_class=HTMLResponse, tags=["html"])
 async def show_submit_page(request: Request):
