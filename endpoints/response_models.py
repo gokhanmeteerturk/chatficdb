@@ -1,9 +1,12 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from database.models import SubmissionStatus
 
 class MetadataTheme(BaseModel):
     primary: str
 
+class TagsResponse(BaseModel):
+    tags: List[Dict[int, str]]
 
 class ServerMetadataResponse(BaseModel):
     theme: MetadataTheme
@@ -17,6 +20,9 @@ class ServerMetadataResponse(BaseModel):
 class ItemExistsResponse(BaseModel):
     exists: bool
 
+class SeriesTagsResponse(BaseModel):
+    series_id: int
+    tags: List[str]
 
 class SeriesLookupResponse(BaseModel):
     isFound: bool
@@ -87,3 +93,17 @@ class WeeklyProgramResponse(BaseModel):
     status: str
     data: Optional[Dict[str, Any]]
     message: Optional[str] = None
+
+
+class StorySubmissionResponse(BaseModel):
+    idstorysubmission: int
+    title: Optional[str]
+    description: Optional[str]
+    author: Optional[str]
+    storyGlobalId: Optional[str]
+    series: SeriesBasicModel
+    submission_date: str
+    files_list: Optional[Dict[str, Any]]  # JSON field for files
+    upload_links: Optional[Dict[str, Any]]  # JSON field for upload links
+    status: SubmissionStatus  # Enum field for status
+    logs: Optional[str]

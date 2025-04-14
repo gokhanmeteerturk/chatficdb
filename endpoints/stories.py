@@ -18,10 +18,13 @@ from tortoise.transactions import atomic
 
 import settings
 from database import models
+from database.models import SeriesIn_Pydantic
 from endpoints.response_models import ItemExistsResponse, StoryResponse, \
     ServerMetadataResponse, MetadataTheme, SeriesLookupResponse, \
     StoryBasicModel, StoriesResponse, SeriesBasicModel, SeriesResponse, \
-    LatestSeriesResponse, WeeklyProgramResponse
+    LatestSeriesResponse, WeeklyProgramResponse, SeriesTagsResponse, \
+    TagsResponse
+from helpers.utils import getUniqueRandomStoryKey
 
 S3_LINK = settings.S3_LINK
 FEED_PATH = "/feed.xml"
@@ -301,6 +304,18 @@ async def get_landing():
     meta["series"] = series
     return meta
 
+@router.get("/tags", response_model=TagsResponse, tags=["tags"])
+async def get_tags():
+    """
+    Retrieve all tags with their IDs and names.
+    """
+    try:
+        tags = await models.Tag.all().values("idtag", "tag")
+        tag_list = [{tag["idtag"]: tag["tag"]} for tag in tags]
+        return TagsResponse(tags=tag_list)
+    except Exception as e:
+        logging.error(f"Error retrieving tags: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving tags")
 
 @router.get("/series", response_model=SeriesResponse, tags=["stories & series"])
 async def get_series(
@@ -316,6 +331,7 @@ async def get_series(
 ) -> SeriesResponse:
     per_page = 60
     page = min(page, 20)
+
     try:
         skip = (page - 1) * per_page
         limit = per_page
@@ -385,6 +401,62 @@ async def get_series(
             series=[]
         )
 
+@router.post("/series", response_model=SeriesBasicModel)
+async def create_series(series: SeriesIn_Pydantic) -> SeriesBasicModel:
+    random_story_key = getUniqueRandomStoryKey()
+    series_global_id = f"{random_story_key[4:]}{random_story_key[:4]}"
+    try:
+        new_series = await models.Series.create(
+            name=series.name,
+            seriesGlobalId=series_global_id,
+            creator=series.creator,
+            episodes=0
+        )
+
+        new_series_pydantic = await models.SeriesWithRels_Pydantic.from_tortoise_orm(new_series)
+
+        return SeriesBasicModel(**new_series_pydantic.model_dump())
+    except Exception as e:
+        logging.error(f"Error creating series: {e}")
+        raise HTTPException(status_code=500, detail="Error creating series")
+
+@router.put("/series/{series_id}/tags", response_model=SeriesTagsResponse)
+async def add_tags_to_series(series_id: int, tags: List[str]):
+    try:
+        series = await models.Series.get(idseries=series_id).prefetch_related(
+            "tags_rel__tag")
+
+        # Fetch all tags from the database in a single query
+        submitted_valid_tags = await models.Tag.filter(tag__in=tags).all()
+        submitted_valid_tag_names = {str(tag.tag) for tag in submitted_valid_tags}
+
+        if not submitted_valid_tag_names:
+            raise HTTPException(status_code=400, detail="No valid tags provided")
+
+        # Get the current tags associated with the series
+        current_tags = {str(tag_rel.tag.tag) for tag_rel in series.tags_rel}
+
+        # Determine tags to add and tags to delete
+        tags_to_add = submitted_valid_tag_names - current_tags
+        tags_to_delete = current_tags - submitted_valid_tag_names
+
+        # Delete unused tags
+        if tags_to_delete:
+            await models.SeriesTagsRel.filter(
+                series=series, tag__tag__in=tags_to_delete
+            ).delete()
+
+        # Add new tags
+        if tags_to_add:
+            tag_objects = [tag for tag in submitted_valid_tags if tag.tag in tags_to_add]
+            await models.SeriesTagsRel.bulk_create([
+                models.SeriesTagsRel(series=series, tag=tag) for tag in tag_objects
+            ])
+
+        return SeriesTagsResponse(series_id=series_id, tags=list(submitted_valid_tag_names))
+    except Exception as e:
+        logging.error("Error adding tags: %s", e)
+        raise HTTPException(status_code=500, detail="Error adding tags")
 
 @router.get("/latest", response_model=LatestSeriesResponse, tags=["stories & series"])
 @atomic()

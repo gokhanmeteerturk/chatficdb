@@ -10,6 +10,12 @@ load_dotenv()
 
 S3_LINK = os.getenv('S3_LINK', "https://topaltdb.s3.us-east-2.amazonaws.com")
 
+S3_BUCKET = os.getenv("S3_BUCKET")
+AWS_REGION = os.getenv("AWS_REGION")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+
 SERVER_METADATA = {
     "name": os.getenv('SERVER_NAME'),
     "slug": os.getenv('SERVER_SLUG'),

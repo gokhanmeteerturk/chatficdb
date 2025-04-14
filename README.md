@@ -143,6 +143,7 @@ cd chatficdb
 python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 ```
 
 Create .env and change contents with your mysql server credentials:
@@ -156,6 +157,12 @@ Run the development server with uvicorn:
 
 ```bash
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-include '*.html' --reload-include '.env'
+```
+
+And run huey for the task queue:
+
+```bash
+huey_consumer.py helpers.tasks.huey
 ```
 
 You'll also need to create and apply migrations manually each time you make a change to the models:
