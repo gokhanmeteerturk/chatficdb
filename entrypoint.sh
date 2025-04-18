@@ -1,4 +1,6 @@
 #!/bin/bash
+# import nltk and get stopwords:
+python -c "import nltk; nltk.download('stopwords')"
 
 # Run migrations if necessary
 #python migrate.py migrate
