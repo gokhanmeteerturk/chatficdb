@@ -9,7 +9,7 @@ python database/migrate.py
 aerich upgrade
 
 # Start the Huey worker in the background
-python huey_consumer.py helpers.tasks.huey > /proc/1/fd/1 2>/proc/1/fd/2 &
+/usr/local/bin/huey_consumer helpers.tasks.huey > /proc/1/fd/1 2>/proc/1/fd/2 &
 
 # Start the FastAPI application
 exec gunicorn main:app -c /app/gunicorn_conf.py
