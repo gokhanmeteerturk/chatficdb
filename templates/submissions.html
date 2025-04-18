@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submissions</title>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        #drop-area {
+            width: 100%;
+            height: 200px;
+            border: 2px dashed #ccc;
+            text-align: center;
+            padding: 20px;
+            line-height: 180px;
+        }
+        #drop-area.highlight { border-color: blue; }
+        #series {
+            width: 60px;
+        }
+        .chip {
+            display: inline-block;
+            padding: 0 10px;
+            margin: 5px;
+            background-color: #e0e0e0;
+            border-radius: 16px;
+            font-size: 14px;
+        }
+        .chip .close-btn {
+            margin-left: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div id="auth-section" class="d-flex justify-content-between">
+            <div>
+                <input type="text" id="token-input" class="form-control d-inline-block w-auto" placeholder="Enter token">
+                <button id="login-btn" class="btn btn-primary">Log in</button>
+            </div>
+            <button id="logout-btn" class="btn btn-danger d-none">Log out</button>
+        </div>
+
+        <div id="main-content" class="mt-4 d-none">
+            <button id="create-submission-btn" class="btn btn-success mb-3">Create New Submission</button>
+            <div id="filters" class="mb-3">
+                <select id="status-filter" class="form-select w-auto d-inline-block me-2">
+                    <option value="">All Statuses</option>
+                    <option value="15">Not Accepted</option>
+                    <option value="20">Waiting Validation</option>
+                    <option value="25">Validation Failed</option>
+                    <option value="30">Waiting User Upload</option>
+                    <option value="35">User Upload Failed</option>
+                    <option value="40">Waiting Post Processing</option>
+                    <option value="45">Post Processing Failed</option>
+                    <option value="60">Processed</option>
+                </select>
+                <select id="filter-type" class="form-select w-auto d-inline-block me-2">
+                    <option value="with_story">With Story</option>
+                    <option value="without_story">Without Story</option>
+                    <option value="all">All</option>
+                </select>
+                <button id="apply-filters-btn" class="btn btn-secondary">Apply Filters</button>
+            </div>
+            <div id="submissions-list" class="table-responsive"></div>
+            <nav>
+                <ul id="pagination" class="pagination"></ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Modal for creating new submission -->
+    <div class="modal fade" id="submission-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Submission</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="submission-form">
+                        <div id="drop-area" class="mb-3">Drop ZIP here</div>
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" id="title" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <input type="text" id="description" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="author" class="form-label">Author</label>
+                            <input type="text" id="author" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="series" class="form-label">Series ID</label>
+                            <input type="number" id="series" class="form-control d-inline-block" readonly>
+                            <select id="series-dropdown" class="form-select d-inline-block w-auto"></select>
+                            <button id="new-series-btn" class="btn btn-primary">New Series</button>
+                        </div>
+                        <button type="button" id="create-submission" class="btn btn-primary">Create Submission</button>
+                    </form>
+                    <div id="submission-status" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for creating new series -->
+    <div class="modal fade" id="new-series-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Series</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="new-series-form">
+                        <div class="mb-3">
+                            <label for="series-name" class="form-label">Name</label>
+                            <input type="text" id="series-name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="series-creator" class="form-label">Creator</label>
+                            <input type="text" id="series-creator" class="form-control" required>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label for="tag-input" class="form-label">Choose Tags</label>
+                            <input type="text" id="tag-input" class="form-control" placeholder="Type to search tags">
+                            <div id="selected-tags"></div>
+                        </div>
+                        <button type="button" id="submit-new-series" class="btn btn-primary">Submit</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- Publish Modal -->
+<div class="modal fade" id="publishModal" tabindex="-1" aria-labelledby="publishModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="publishForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="publishModalLabel">Publish Submission</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="publish-submission-id" />
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="excludeFromRss">
+                <label class="form-check-label" for="excludeFromRss">
+                    Exclude from RSS
+                </label>
+            </div>
+            <div class="mb-3">
+                <label for="releaseDate" class="form-label">Release Date</label>
+                <input type="datetime-local" class="form-control" id="releaseDate">
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Publish</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+    <script>
+        const tokenKey = "authToken";
+        const apiUrl = "/story_submissions";
+        const tagsUrl = "/tags";
+        const seriesUrl = "/series";
+        let currentPage = 1;
+        let tagsList = [];
+        let selectedTags = [];
+
+        // Token management
+        const tokenInput = document.getElementById("token-input");
+        const loginBtn = document.getElementById("login-btn");
+        const logoutBtn = document.getElementById("logout-btn");
+        const mainContent = document.getElementById("main-content");
+        const applyFiltersBtn = document.getElementById("apply-filters-btn");
+
+        function checkToken() {
+            const token = localStorage.getItem(tokenKey);
+            if (token) {
+                loginBtn.classList.add("d-none");
+                tokenInput.classList.add("d-none");
+                logoutBtn.classList.remove("d-none");
+                mainContent.classList.remove("d-none");
+                loadSubmissions();
+            } else {
+                loginBtn.classList.remove("d-none");
+                tokenInput.classList.remove("d-none");
+                logoutBtn.classList.add("d-none");
+                mainContent.classList.add("d-none");
+            }
+        }
+
+        loginBtn.addEventListener("click", () => {
+            const token = tokenInput.value.trim();
+            if (token) {
+                localStorage.setItem(tokenKey, token);
+                checkToken();
+            }
+        });
+
+        logoutBtn.addEventListener("click", () => {
+            localStorage.removeItem(tokenKey);
+            checkToken();
+        });
+
+        applyFiltersBtn.addEventListener("click", () => {
+            currentPage = 1;
+            loadSubmissions();
+        });
+
+        checkToken();
+
+        // Load submissions
+        async function loadSubmissions() {
+            const token = localStorage.getItem(tokenKey);
+            const statusFilter = document.getElementById("status-filter").value;
+            const filterType = document.getElementById("filter-type").value;
+
+            try {
+                const params = { page: currentPage };
+                if (statusFilter !== "") params.status = statusFilter;
+                if (filterType !== "") params.filter_type = filterType;
+
+                const response = await axios.get(apiUrl, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: params
+                });
+                renderSubmissions(response.data.submissions);
+                renderPagination(response.data.page, response.data.next_page);
+            } catch (error) {
+                console.error("Error loading submissions:", error);
+            }
+        }
+        function escapeHtmlAttr(str) {
+            return (str || "")
+                .replace(/&/g, "&amp;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+
+        function renderSubmissions(submissions) {
+            const list = document.getElementById("submissions-list");
+            list.innerHTML = `
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Author</th>
+                            <th>Story Global ID</th>
+                            <th>Series</th>
+                            <th>Submission Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${submissions.map(submission => `
+                            <tr>
+                                <td>${submission.idstorysubmission}</td>
+                                <td>${submission.title || ""} ${submission.story_id ? `
+                                <br><span class="chip bg-warning">Approved! Story id: ${submission.story_id}</span>
+                                    ${submission.story ? `
+            <br><span class="chip bg-info">Release Date: ${submission.story.release_date}</span>
+            <br><span class="chip bg-info">Exclude from RSS: ${submission.story.exclude_from_rss}</span>
+        ` : ""}
+                                `:""}</td>
+                                <td>${submission.description || ""}</td>
+                                <td>${submission.author || ""}</td>
+                                <td>${submission.storyGlobalId || ""}</td>
+                                <td>${submission.series.name} (ID: ${submission.series.idseries})</td>
+                                <td>${submission.submission_date}</td>
+                                <td>${submission.status}</td>
+                                <td>
+                                    <button class="btn btn-info btn-sm" style="width:100px;" onclick="showLogs('${escapeHtmlAttr(submission.logs.replace(/\s*\n\s*/g, '').trim()) || ""}')"
+                                        ${!submission.logs || submission.logs.length < 5 ? "disabled" : ""}>
+                                        Show Logs
+                                    </button><br>
+                                    ${submission.story_id ? ` <button class="btn btn-success btn-sm mt-1" onclick="openPublishModal(${submission.idstorysubmission})">
+                                        Publish
+                                    </button>` : `
+                                    <button class="btn btn-success btn-sm mt-1" onclick="openPublishModal(${submission.idstorysubmission})">
+                                        Publish
+                                    </button>
+                                    `}
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderPagination(current, next) {
+            const pagination = document.getElementById("pagination");
+            pagination.innerHTML = `
+                <li class="page-item ${current === 1 ? "disabled" : ""}">
+                    <button class="page-link" onclick="changePage(${current - 1})">Previous</button>
+                </li>
+                <li class="page-item ${!next ? "disabled" : ""}">
+                    <button class="page-link" onclick="changePage(${current + 1})">Next</button>
+                </li>
+            `;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadSubmissions();
+        }
+
+        // Show logs in a popup
+        function showLogs(logs) {
+            alert(logs);
+        }
+
+        // Create new submission
+        const createSubmissionBtn = document.getElementById("create-submission-btn");
+        const submissionModal = new bootstrap.Modal(document.getElementById("submission-modal"));
+        const dropArea = document.getElementById("drop-area");
+        const createSubmission = document.getElementById("create-submission");
+        let files = [];
+        let zip = null;
+        let storybasicContent = null;
+
+        createSubmissionBtn.addEventListener("click", () => {
+            submissionModal.show();
+        });
+
+        dropArea.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            dropArea.classList.add("highlight");
+        });
+
+        dropArea.addEventListener("dragleave", () => {
+            dropArea.classList.remove("highlight");
+        });
+
+        dropArea.addEventListener("drop", async (event) => {
+            event.preventDefault();
+            dropArea.classList.remove("highlight");
+
+            const file = event.dataTransfer.files[0];
+            if (!file || file.type !== "application/zip" && file.type !== "application/x-zip-compressed") {
+                alert("Please drop a ZIP file.");
+                return;
+            }
+
+            try {
+                zip = await JSZip.loadAsync(file);
+                files = [];
+                zip.forEach((relativePath, zipEntry) => {
+                    files.push({ name: relativePath, originalName:relativePath, size: zipEntry._data.uncompressedSize });
+                });
+                console.log("Extracted files:", files);
+
+                // detect if first file element has no size, and all other file names start with the same name:
+                const firstFile = files[0];
+                const hasNoSize = !firstFile.size;
+                if(hasNoSize){
+                    const allFilesStartWithSameName = files.every(file => file.name.startsWith(firstFile.name));
+                    if(allFilesStartWithSameName){
+                        // remove first file's name from all files, but only from beginning, so use length:
+                        files = files.map(file => ({ name: file.name.slice(firstFile.name.length), originalName:file.originalName, size: file.size }));
+                    }
+                }
+
+                // Check if the 'storybasic.json' exists in files:
+                const storyBasicFile = files.find(file => file.name === 'storybasic.json');
+                if (!storyBasicFile) {
+                    errorMessage.textContent = "Error: 'storybasic.json' is missing from the ZIP file.";
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+                storybasicContent = await zip.file(storyBasicFile.originalName).async("text");
+
+                try {
+                    // Parse the JSON content and get title & description & author:
+                    const storyBasicData = JSON.parse(storybasicContent);
+                    document.getElementById("title").value = storyBasicData.title || "";
+                    document.getElementById("description").value = storyBasicData.description || "";
+                    document.getElementById("author").value = storyBasicData.author || "";
+                }
+                catch (error) {
+                    console.error("Error parsing storybasic.json:", error);
+                    alert("Error parsing storybasic.json. Please check the file format.");
+                    return;
+                }
+
+                // delete elements from files where there is no size key or the value is null or undefined:
+                files = files.filter(file => file.size);
+            } catch (error) {
+                console.error("Error processing ZIP file:", error);
+            }
+        });
+
+        createSubmission.addEventListener("click", async () => {
+            const token = localStorage.getItem(tokenKey);
+            const formData = {
+                title: document.getElementById("title").value,
+                description: document.getElementById("description").value,
+                author: document.getElementById("author").value,
+                series_id: parseInt(document.getElementById("series").value),
+                files_list: files,
+                story_text: storybasicContent
+            };
+
+            try {
+                const response = await axios.post(apiUrl, formData, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const submissionId = response.data.idstorysubmission;
+                monitorSubmission(submissionId);
+            } catch (error) {
+                console.error("Error creating submission:", error);
+            }
+        });
+
+        async function monitorSubmission(submissionId) {
+            const token = localStorage.getItem(tokenKey);
+            const statusDiv = document.getElementById("submission-status");
+
+            const interval = setInterval(async () => {
+                try {
+                    const response = await axios.get(`${apiUrl}/${submissionId}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const submission = response.data;
+                    statusDiv.textContent = `Current Status: ${submission.status}`;
+
+                    if (submission.status === 30 || submission.status === "30") { // 30: WAITING_USER_UPLOAD
+                        clearInterval(interval);
+                        statusDiv.textContent = "Uploading files...";
+                        await uploadFiles(submission.upload_links);
+                        await axios.post(`${apiUrl}/${submissionId}/register_upload`, {}, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        monitorSubmission(submissionId);
+                    }
+                } catch (error) {
+                    console.error("Error monitoring submission:", error);
+                }
+            }, 5000);
+        }
+
+        async function uploadFiles(uploadLinks) {
+            for (const file of uploadLinks) {
+                const formData = new FormData();
+                const originalName = files.find(f => f.name === file.name).originalName;
+
+                Object.entries(file.url.fields).forEach(([key, value]) => {
+                    formData.append(key, value);
+                });
+
+                const fileBlob = await zip.file(originalName).async("blob");
+                formData.append("file", fileBlob);
+
+                await axios.post(file.url.url, formData);
+            }
+        }
+
+        async function fetchTags() {
+            try {
+                const response = await axios.get(tagsUrl);
+                tagsList = response.data.tags.map(tag => Object.values(tag)[0]);
+            } catch (error) {
+                console.error("Error fetching tags:", error);
+            }
+        }
+
+        async function fetchSeries() {
+            try {
+
+                const token = localStorage.getItem(tokenKey);
+                const response = await axios.get(seriesUrl, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: { page: 1, sort_by: "new", include_drafts: true } });
+                const seriesDropdown = document.getElementById("series-dropdown");
+                seriesDropdown.innerHTML = response.data.series.map(series => `
+                    <option value="${series.idseries}">${series.name}</option>
+                `).join("");
+                seriesDropdown.addEventListener("change", () => {
+                    document.getElementById("series").value = seriesDropdown.value;
+                });
+            } catch (error) {
+                console.error("Error fetching series:", error);
+            }
+        }
+
+        function setupTagAutocomplete() {
+            const tagInput = document.getElementById("tag-input");
+            tagInput.addEventListener("input", () => {
+                const query = tagInput.value.toLowerCase();
+                const suggestions = tagsList.filter(tag => tag.toLowerCase().includes(query));
+                const datalist = document.createElement("datalist");
+                datalist.id = "tag-suggestions";
+                datalist.innerHTML = suggestions.map(tag => `<option value="${tag}">`).join("");
+                tagInput.setAttribute("list", "tag-suggestions");
+                document.body.appendChild(datalist);
+            });
+
+            tagInput.addEventListener("change", () => {
+                const tag = tagInput.value.trim();
+                if (tag && !selectedTags.includes(tag)) {
+                    selectedTags.push(tag);
+                    renderSelectedTags();
+                }
+                tagInput.value = "";
+            });
+        }
+
+        function renderSelectedTags() {
+            const selectedTagsDiv = document.getElementById("selected-tags");
+            selectedTagsDiv.innerHTML = selectedTags.map(tag => `
+                <span class="chip">
+                    ${tag}
+                    <span class="close-btn" onclick="removeTag('${tag}')">x</span>
+                </span>
+            `).join("");
+        }
+
+        function removeTag(tag) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+            renderSelectedTags();
+        }
+
+        async function createNewSeries() {
+            const name = document.getElementById("series-name").value.trim();
+            const creator = document.getElementById("series-creator").value.trim();
+            if (!name || !creator) return;
+
+            try {
+                const response = await axios.post(seriesUrl, { name, creator });
+                const seriesId = response.data.idseries;
+
+                if (selectedTags.length > 0) {
+                    await axios.put(`${seriesUrl}/${seriesId}/tags`, selectedTags);
+                }
+
+                const modal = bootstrap.Modal.getInstance(document.getElementById("new-series-modal"));
+                modal.hide();
+                await fetchSeries();
+            } catch (error) {
+                console.error("Error creating series:", error);
+            }
+        }
+
+        document.getElementById("new-series-btn").addEventListener("click", () => {
+            const modal = new bootstrap.Modal(document.getElementById("new-series-modal"));
+            modal.show();
+        });
+
+        document.getElementById("submit-new-series").addEventListener("click", createNewSeries);
+
+
+        let publishModal = new bootstrap.Modal(document.getElementById('publishModal'));
+function getCurrentDateTimeLocal() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const localDate = new Date(now.getTime() - offset * 60000); // adjust to local time
+    return localDate.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
+}
+
+function openPublishModal(submissionId) {
+    document.getElementById("publish-submission-id").value = submissionId;
+    document.getElementById("excludeFromRss").checked = false;
+    document.getElementById("releaseDate").value = getCurrentDateTimeLocal();
+    publishModal.show();
+}
+
+document.getElementById("publishForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const token = localStorage.getItem(tokenKey);
+    const submissionId = document.getElementById("publish-submission-id").value;
+    const excludeFromRss = document.getElementById("excludeFromRss").checked;
+    // const releaseDateInput = document.getElementById("releaseDate").value;
+    // const releaseDate = releaseDateInput ? new Date(releaseDateInput).toISOString() : null;
+
+    const releaseDateInput = document.getElementById("releaseDate");
+    const releaseDateValue = releaseDateInput.value;
+
+    // If the field is left empty, use null
+    const releaseDate = releaseDateValue === "" ? null : releaseDateValue;
+
+
+    try {
+        const response = await axios.post(`/story_submissions/${submissionId}/convert`, {
+            exclude_from_rss: excludeFromRss,
+            release_date: releaseDate
+        }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.data.success) {
+            publishModal.hide();
+            await loadSubmissions();  // refresh table
+        } else {
+            alert("Failed to publish: " + response.data.message);
+        }
+    } catch (error) {
+        console.error("Error publishing submission:", error);
+        alert("An error occurred while publishing.");
+    }
+});
+
+
+        async function initializePage() {
+            await fetchTags();
+            await fetchSeries();
+            setupTagAutocomplete();
+        }
+
+        initializePage();
+    </script>
+</body>
+</html>

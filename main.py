@@ -5,21 +5,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from tortoise.contrib.fastapi import register_tortoise
+from helpers.design import templates
 
-from endpoints import stories, giveaways
-
-from helpers.tasks import run_sentiment_analysis, huey
+from endpoints import stories, giveaways, submissions
 
 import settings
 
 app = FastAPI()
-
-templates = Jinja2Templates(directory="templates")
-templates.env.globals['server'] = settings.SERVER_METADATA
-templates.env.globals['theme'] = settings.THEME
 
 logging.basicConfig(level=logging.INFO)
 
@@ -63,17 +57,10 @@ app = FastAPI(
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(stories.router)
+app.include_router(submissions.router)
 app.include_router(giveaways.router)
 
 S3_LINK = settings.S3_LINK
-
-@app.get("/test_queue")
-async def test_queue(text: str):
-    run_sentiment_analysis(5)
-    run_sentiment_analysis(6)
-    run_sentiment_analysis(7)
-    run_sentiment_analysis(8)
-    return {"story_id": 5}
 
 @app.get("/submit", response_class=HTMLResponse, tags=["html"])
 async def show_submit_page(request: Request):
@@ -81,6 +68,13 @@ async def show_submit_page(request: Request):
 
     return templates.TemplateResponse(
         "submit_page.html",
+        {"request": request},
+    )
+
+@app.get("/submissions", response_class=HTMLResponse, tags=["html"])
+async def show_submissions_page(request: Request):
+    return templates.TemplateResponse(
+        "submissions.html",
         {"request": request},
     )
 

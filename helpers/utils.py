@@ -42,20 +42,6 @@ def str_to_bool(text):
         raise ValueError
 
 
-def run_async_task(coro):
-    try:
-        # Try to get the running event loop
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # No running loop, create a new one
-        loop = None
-
-    if loop and loop.is_running():
-        # If a loop is already running, schedule the coroutine
-        return asyncio.ensure_future(coro)
-    else:
-        # Otherwise, create a new loop and run the coroutine
-        return asyncio.run(coro)
 
 def getUniqueRandomStoryKey():
     hash_integers = str(int(time.time()))[::-1] + str(random.randint(0,9))

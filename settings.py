@@ -15,6 +15,8 @@ AWS_REGION = os.getenv("AWS_REGION")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
+ADMIN_AUTH_TOKEN = os.getenv("ADMIN_AUTH_TOKEN")
+
 
 SERVER_METADATA = {
     "name": os.getenv('SERVER_NAME'),

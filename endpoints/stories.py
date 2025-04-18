@@ -7,7 +7,7 @@ from typing import List, Optional
 
 import feedgenerator  # Install it using: pip install feedgenerator
 import pytz
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi_utilities import repeat_every
 from pydantic.types import PositiveInt, NonNegativeInt
 from starlette.responses import FileResponse
@@ -25,6 +25,7 @@ from endpoints.response_models import ItemExistsResponse, StoryResponse, \
     LatestSeriesResponse, WeeklyProgramResponse, SeriesTagsResponse, \
     TagsResponse
 from helpers.utils import getUniqueRandomStoryKey
+from helpers.auth import validate_token  # Import validate_token
 
 S3_LINK = settings.S3_LINK
 FEED_PATH = "/feed.xml"
@@ -328,7 +329,9 @@ async def get_series(
                              description="Sort by 'new' or 'name"),
         tags_required: List[str] = Query([],
                                          description="Required tags"),
-) -> SeriesResponse:
+        include_drafts: bool = Query(False, description="Include series with unpublished or no stories"),
+        authorization: Optional[str] = Header(None, convert_underscores=False)
+):
     per_page = 60
     page = min(page, 20)
 
@@ -336,6 +339,10 @@ async def get_series(
         skip = (page - 1) * per_page
         limit = per_page
         series_query = None
+
+        if include_drafts:
+            validate_token(authorization)  # Validate token if include_drafts is true
+
         if storyGlobalId:
             stories = await models.Story.filter(
                 storyGlobalId=storyGlobalId).limit(1)
@@ -352,9 +359,10 @@ async def get_series(
                 tags_rel__tag__tag__in=tags_required
             )
 
-        series_query = series_query.filter(stories__idstory__in=Subquery(
-            models.Story.filter(release_date__lte=datetime.now()).values(
-                "idstory"))).distinct()
+        if not include_drafts:
+            series_query = series_query.filter(stories__idstory__in=Subquery(
+                models.Story.filter(release_date__lte=datetime.now()).values(
+                    "idstory"))).distinct()
 
         # If tortoise orm's Count can introduce "filter" in the future,
         # this will be used instead:

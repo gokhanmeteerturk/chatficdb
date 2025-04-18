@@ -69,6 +69,8 @@ class Series(Model):
         """
         # Compute the number of stories associated with this series
         try:
+            if not hasattr(self, 'stories'):
+                return -1
             # Terrible performance, but maybe tortoise's pydantic integration
             # can let us cache this property in the future.
             # TODO: make this a calculated field and trigger its update when
@@ -153,21 +155,11 @@ class StorySubmission(Model):
                                  default=SubmissionStatus.WAITING_VALIDATION,
                                  null=False)
     logs = fields.TextField(null=True)
+    story = fields.ForeignKeyField('models.Story', related_name='submission', null=True)
 
     class Meta:
         table = "story_submissions"
 
-
-Story_Submission_Pydantic = pydantic_model_creator(StorySubmission,
-                                                   name="StorySubmission")
-Story_SubmissionIn_Pydantic = pydantic_model_creator(StorySubmission,
-                                                     exclude=('idstorysubmission',
-                                                              'submission_date',
-                                                              'status',
-                                                              'logs',
-                                                              'upload_links'),
-                                                   name="StorySubmissionIn",
-                                                     exclude_readonly=True)
 
 
 class Story(Model):
@@ -213,7 +205,7 @@ Series_Pydantic = pydantic_model_creator(Series,
                                          name="Series")
 SeriesIn_Pydantic = pydantic_model_creator(Series,
                                            name="SeriesIn",
-                                           exclude=('seriesGlobalId','episodes'),
+                                           exclude=('seriesGlobalId','episodes', 'tags_rel', 'stories'),
                                            exclude_readonly=True)
 
 Tag_Pydantic = pydantic_model_creator(Tag, name="Tag")
@@ -222,4 +214,21 @@ TagIn_Pydantic = pydantic_model_creator(Tag, name="TagIn",
 
 Tortoise.init_models(["database.models"], "models")
 
+# Below should always come after Tortoise.init_models in order to add foreign
+# key fields.
+# https://tortoise.github.io/contrib/pydantic.html#relations-early-init
+
 SeriesWithRels_Pydantic = pydantic_model_creator(Series, name="SeriesWithRels")
+
+Story_Submission_Pydantic = pydantic_model_creator(StorySubmission,
+                                                   name="StorySubmission")
+Story_SubmissionIn_Pydantic = pydantic_model_creator(StorySubmission,
+                                                     exclude=('idstorysubmission',
+                                                              'submission_date',
+                                                              'status',
+                                                              'logs',
+                                                              'upload_links',
+                                                              'story_id',
+                                                              'storyGlobalId'),
+                                                   name="StorySubmissionIn",
+                                                     exclude_readonly=True)

@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from database.models import SubmissionStatus
@@ -37,6 +38,13 @@ class StoryResponse(BaseModel):
     author: str = ""
     patreonusername: Optional[str] = ""
     cdn: str = ""
+
+class StoryReleaseResponse(BaseModel):
+    idstory: int
+    storyGlobalId: Optional[str] = None
+    release_date: datetime.datetime
+    exclude_from_rss: bool
+
 
 
 class StoryBasicModel(BaseModel):
@@ -102,8 +110,28 @@ class StorySubmissionResponse(BaseModel):
     author: Optional[str]
     storyGlobalId: Optional[str]
     series: SeriesBasicModel
-    submission_date: str
-    files_list: Optional[Dict[str, Any]]  # JSON field for files
-    upload_links: Optional[Dict[str, Any]]  # JSON field for upload links
+    submission_date: datetime.datetime
+    files_list: Optional[List[Dict[str, Any]]]  # JSON field for files
+    upload_links: Optional[List[Dict[str, Any]]]  # JSON field for upload links
     status: SubmissionStatus  # Enum field for status
     logs: Optional[str]
+    story_id: Optional[int] = None
+    story: Optional[StoryReleaseResponse] = None
+
+
+class SubmissionListResponse(BaseModel):
+    submissions: List[StorySubmissionResponse]
+    total: int
+    page: int
+    next_page: Optional[int]
+
+class SubmissionToStoryRequest(BaseModel):
+    release_date: Optional[str] = None
+    exclude_from_rss: bool = False
+
+class SubmissionToStoryResponse(BaseModel):
+    success: bool
+    message: str
+    story_id: Optional[int] = None
+    storyGlobalId: Optional[str] = None
+

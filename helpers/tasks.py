@@ -1,15 +1,25 @@
+import asyncio
 import json
 
 from huey import SqliteHuey
 
 from database.models import StorySubmission, SubmissionStatus
 import helpers.chatfic_tools as chatfic_tools
-from helpers.utils import run_async_task, getUniqueRandomStoryKey, \
+from helpers.utils import getUniqueRandomStoryKey, \
     create_s3_client
 
-from settings import S3_BUCKET
-huey = SqliteHuey(filename="queue_db/huey_tasks.db")
+from settings import S3_BUCKET, TORTOISE_CONFIG
 
+huey = SqliteHuey(filename="queue_db/huey_tasks.db")
+from tortoise import Tortoise
+
+async def _run_db_task_wrapper(task, *args, **kwargs):
+    await Tortoise.init(config=TORTOISE_CONFIG)
+    await Tortoise.generate_schemas()
+    try:
+        await task(*args, **kwargs)
+    finally:
+        await Tortoise.close_connections()
 
 @huey.task()
 def run_submission_preprocess(submission_id: int):
@@ -20,12 +30,13 @@ def run_submission_preprocess(submission_id: int):
         VALIDATION_FAILED = 25
         WAITING_USER_UPLOAD = 30"
     """
-
-    run_async_task(_run_submission_preprocess_async(submission_id))
+    #_run_submission_preprocess_async(submission_id)
+    asyncio.run(_run_db_task_wrapper(_run_submission_preprocess_async, submission_id))
 
 @huey.task()
 def run_submission_postprocess(submission_id: int):
-    run_async_task(_run_submission_postprocess_async(submission_id))
+    # _run_submission_postprocess_async(submission_id)
+    asyncio.run(_run_db_task_wrapper(_run_submission_postprocess_async, submission_id))
 
 async def _run_submission_preprocess_async(submission_id: int):
     submission = await get_submission_or_raise(submission_id)
@@ -91,7 +102,7 @@ async def get_submission_or_raise(submission_id: int):
 
 
 def extract_multimedia_list(files_list):
-    return [file.name[6:] for file in files_list if file.name.startswith("media/")]
+    return [file["name"][6:] for file in files_list if file["name"].startswith("media/")]
 
 
 async def mark_validation_failed(submission, validation_result):
@@ -112,8 +123,8 @@ def filter_used_multimedia(multimedia_list, warnings):
 def filter_valid_files(files_list, multimedia_list):
     return [
         file for file in files_list
-        if (file.name.startswith("media/") and file.name[6:] in multimedia_list) or
-           file.name == "storybasic.md"
+        if (file["name"].startswith("media/") and file["name"][6:] in multimedia_list) or
+           file["name"] == "storybasic.md"
     ]
 
 async def mark_no_valid_files(submission):
