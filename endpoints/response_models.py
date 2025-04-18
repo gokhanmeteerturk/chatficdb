@@ -54,6 +54,7 @@ class StoryBasicModel(BaseModel):
     patreonusername: Optional[str]
     storyGlobalId: Optional[str]
     cdn: str
+    release_date: Optional[datetime.datetime] = None
 
 
 class StoriesResponse(BaseModel):

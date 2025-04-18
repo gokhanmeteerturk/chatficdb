@@ -36,6 +36,7 @@
     </style>
 </head>
 <body>
+
     <div class="container mt-4">
         <div id="auth-section" class="d-flex justify-content-between">
             <div>
@@ -45,7 +46,147 @@
             <button id="logout-btn" class="btn btn-danger d-none">Log out</button>
         </div>
 
+
         <div id="main-content" class="mt-4 d-none">
+            <div id="calendar-container" class="d-none mt-4 mb-3">
+    <div id="calendar" class="d-flex justify-content-between"></div>
+    <script>
+        async function fetchStoriesForCalendar() {
+            const token = localStorage.getItem("authToken");
+            if (!token) return;
+
+            const apiUrl = "/stories";
+            const params = { sort_by: "-date", include_upcoming: 1 };
+            const headers = { Authorization: `Bearer ${token}` };
+            let stories = [];
+
+            for (let page = 1; page <= 3; page++) {
+                try {
+                    const response = await axios.get(apiUrl, {
+                        headers,
+                        params: { ...params, page }
+                    });
+                    stories = stories.concat(response.data.stories);
+                } catch (error) {
+                    console.error("Error fetching stories for calendar:", error);
+                }
+            }
+
+            return stories;
+        }
+
+        function generateCalendar(stories) {
+            const calendarContainer = document.getElementById("calendar");
+            calendarContainer.innerHTML = "";
+
+            const today = new Date();
+            const months = [today.getMonth(), today.getMonth() + 1];
+            const year = today.getFullYear();
+
+            const colors = [
+                "#FFDDC1", "#FFABAB", "#FFC3A0", "#D5AAFF",
+                "#85E3FF", "#B9FBC0", "#FF9CEE", "#DCD3FF"
+            ];
+            let colorMap = {};
+            let currentColorIndex = 0;
+
+            function getColorForFirstWord(firstWord) {
+                if (!colorMap[firstWord]) {
+                    colorMap[firstWord] = colors[currentColorIndex];
+                    currentColorIndex = (currentColorIndex + 1) % colors.length;
+                }
+                return colorMap[firstWord];
+            }
+
+            months.forEach((month) => {
+                const monthDate = new Date(year, month, 1);
+                const monthName = monthDate.toLocaleString("default", { month: "long" });
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                const calendar = document.createElement("div");
+                calendar.className = "calendar-month";
+                calendar.innerHTML = `<h5>${monthName} ${year}</h5>`;
+
+                const daysGrid = document.createElement("div");
+                daysGrid.className = "calendar-grid";
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayElement = document.createElement("div");
+                    dayElement.className = "calendar-day";
+                    dayElement.textContent = day;
+
+                    const dateStr = new Date(year, month, day).toISOString().split("T")[0];
+                    const story = stories.find((s) => s.release_date.startsWith(dateStr));
+
+                    if (story) {
+                        const firstWord = story.title.split(" ")[0];
+                        const color = getColorForFirstWord(firstWord);
+
+                        dayElement.style.backgroundColor = color;
+                        dayElement.classList.add("calendar-day-highlight");
+                        dayElement.setAttribute("data-bs-toggle", "tooltip");
+                        dayElement.setAttribute("data-bs-title", `${story.title} (${story.storyGlobalId})`);
+                    }
+
+                    daysGrid.appendChild(dayElement);
+                }
+
+                calendar.appendChild(daysGrid);
+                calendarContainer.appendChild(calendar);
+            });
+
+            // Activate tooltips for dynamically added elements
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach((tooltipTriggerEl) => {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        async function initializeCalendar() {
+            const token = localStorage.getItem("authToken");
+            const calendarContainer = document.getElementById("calendar-container");
+
+            if (token) {
+                calendarContainer.classList.remove("d-none");
+                const stories = await fetchStoriesForCalendar();
+                generateCalendar(stories);
+            } else {
+                calendarContainer.classList.add("d-none");
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initializeCalendar();
+
+            // Enable tooltips globally
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach((tooltipTriggerEl) => {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
+    <style>
+        .calendar-month {
+            width: 48%;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        .calendar-day {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .calendar-day-highlight {
+            background-color: blue;
+            color: #222;
+            cursor: pointer;
+        }
+    </style>
+</div>
             <button id="create-submission-btn" class="btn btn-success mb-3">Create New Submission</button>
             <div id="filters" class="mb-3">
                 <select id="status-filter" class="form-select w-auto d-inline-block me-2">
@@ -292,9 +433,7 @@
                                         ${!submission.logs || submission.logs.length < 5 ? "disabled" : ""}>
                                         Show Logs
                                     </button><br>
-                                    ${submission.story_id ? ` <button class="btn btn-success btn-sm mt-1" onclick="openPublishModal(${submission.idstorysubmission})">
-                                        Publish
-                                    </button>` : `
+                                    ${submission.story_id ? "" : `
                                     <button class="btn btn-success btn-sm mt-1" onclick="openPublishModal(${submission.idstorysubmission})">
                                         Publish
                                     </button>

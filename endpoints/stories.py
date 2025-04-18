@@ -193,13 +193,14 @@ async def get_stories(
         from_series_of_story: Optional[str] = Query(
             None, description="Story Global ID for series lookup"
         ),
-        sort_by: str = Query("date", description="Sort by 'date' or 'name"),
+        sort_by: str = Query("date", description="Sort by 'date', '-date' (reverse date), or 'name'"),
         tags_required: List[str] = Query([], description="Required tag "
                                                          "'names'. These are "
                                                          "limited to 3 tags."),
         include_upcoming: NonNegativeInt = Query(0,
                                                  description="Include upcoming"
-                                                             " releases")
+                                                             " releases"),
+        authorization: Optional[str] = Header(None, convert_underscores=False)
 ) -> StoriesResponse:
 
     per_page = 60
@@ -208,7 +209,9 @@ async def get_stories(
         limit = per_page
         stories_query = models.Story.all()
 
-        if not include_upcoming:
+        if include_upcoming and include_upcoming != 0:
+            validate_token(authorization)  # Validate token if include_upcoming is true
+        else:
             stories_query = stories_query.filter(
                 release_date__lte=datetime.now()
             )
@@ -237,6 +240,8 @@ async def get_stories(
 
         if sort_by == "date":
             stories_query = stories_query.order_by("idstory")
+        elif sort_by == "-date":
+            stories_query = stories_query.order_by("-idstory")
         elif sort_by == "name":
             stories_query = stories_query.order_by("title")
         else:

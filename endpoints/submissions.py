@@ -153,9 +153,6 @@ async def list_submissions(
             await Story_Submission_Pydantic.from_tortoise_orm(submission)
             for submission in submissions
         ]
-        print(submission_data)
-        print("----")
-        print(submission_data[0])
 
         # Create response objects
         submission_responses = [
@@ -170,7 +167,6 @@ async def list_submissions(
             next_page=next_page
         )
     except Exception as e:
-        raise e
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching submissions: {str(e)}"
@@ -241,7 +237,6 @@ async def convert_submission_to_story(
     except HTTPException:
         raise
     except Exception as e:
-        raise e
         raise HTTPException(
             status_code=500,
             detail=f"Error converting submission to story: {str(e)}"
