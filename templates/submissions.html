@@ -673,6 +673,7 @@ dayElement.setAttribute("data-bs-title", `${story.title} (${story.storyGlobalId}
                 seriesDropdown.addEventListener("change", () => {
                     document.getElementById("series").value = seriesDropdown.value;
                 });
+                document.getElementById("series").value = seriesDropdown.value;
             } catch (error) {
                 console.error("Error fetching series:", error);
             }
