@@ -49,6 +49,15 @@
 
         <div id="main-content" class="mt-4 d-none">
             <div id="calendar-container" class="d-none mt-4 mb-3">
+                <div class="mb-3">
+                    <label for="timezone-select" class="form-label">Select Timezone:</label>
+                    <select id="timezone-select" class="form-select w-auto d-inline-block">
+                        <option value="UTC" selected>UTC</option>
+                        <option value="America/New_York">EDT (America/New_York)</option>
+                        <option value="America/Los_Angeles">PDT (America/Los_Angeles)</option>
+                        <option value="Europe/London">UK (Europe/London)</option>
+                    </select>
+                </div>
     <div id="calendar" class="d-flex justify-content-between"></div>
     <script>
         async function fetchStoriesForCalendar() {
@@ -75,7 +84,23 @@
             return stories;
         }
 
-        function generateCalendar(stories) {
+        function convertToTimezone(dateStr, timezone) {
+            const date = new Date(dateStr);
+            const options = { timeZone: timezone, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" };
+            const formatter = new Intl.DateTimeFormat("en-US", options);
+            const parts = formatter.formatToParts(date);
+
+            const year = parseInt(parts.find(part => part.type === "year").value, 10);
+            const month = parseInt(parts.find(part => part.type === "month").value, 10) - 1; // Months are 0-indexed
+            const day = parseInt(parts.find(part => part.type === "day").value, 10);
+            const hour = parseInt(parts.find(part => part.type === "hour").value, 10);
+            const minute = parseInt(parts.find(part => part.type === "minute").value, 10);
+            const second = parseInt(parts.find(part => part.type === "second").value, 10);
+
+            return new Date(Date.UTC(year, month, day, hour, minute, second));
+        }
+
+        function generateCalendar(stories, timezone = "UTC") {
             const calendarContainer = document.getElementById("calendar");
             calendarContainer.innerHTML = "";
 
@@ -115,18 +140,23 @@
                     dayElement.className = "calendar-day";
                     dayElement.textContent = day;
 
-                    const dateStr = new Date(year, month, day).toISOString().split("T")[0];
-                    const story = stories.find((s) => s.release_date.startsWith(dateStr));
+                    const dateStr = new Date(Date.UTC(year, month, day)).toISOString().split("T")[0];
+                                const story = stories.find((s) => {
+                                    const storyDate = convertToTimezone(s.release_date, timezone);
+                                    const storyDateStr = storyDate.toISOString().split("T")[0];
+
+                                    return storyDateStr === dateStr;
+                                });
 
                     if (story) {
+                                    const storyDate = convertToTimezone(story.release_date, timezone);
                         const firstWord = story.title.split(" ")[0];
                         const color = getColorForFirstWord(firstWord);
 
                         dayElement.style.backgroundColor = color;
                         dayElement.classList.add("calendar-day-highlight");
                         dayElement.setAttribute("data-bs-toggle", "tooltip");
-                        dayElement.setAttribute("data-bs-title", `${story.title} (${story.storyGlobalId})`);
-                    }
+dayElement.setAttribute("data-bs-title", `${story.title} (${story.storyGlobalId}) - ${storyDate.toLocaleTimeString("en-US", { timeZone: timezone, hour: '2-digit', minute: '2-digit' })}`);                    }
 
                     daysGrid.appendChild(dayElement);
                 }
@@ -149,7 +179,14 @@
             if (token) {
                 calendarContainer.classList.remove("d-none");
                 const stories = await fetchStoriesForCalendar();
-                generateCalendar(stories);
+                            const timezoneSelect = document.getElementById("timezone-select");
+
+                            timezoneSelect.addEventListener("change", () => {
+                                const selectedTimezone = timezoneSelect.value;
+                                generateCalendar(stories, selectedTimezone);
+                            });
+
+                            generateCalendar(stories, timezoneSelect.value);
             } else {
                 calendarContainer.classList.add("d-none");
             }
