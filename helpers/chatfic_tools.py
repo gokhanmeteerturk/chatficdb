@@ -111,7 +111,6 @@ class_dict = [
 "surprised",
 ]
 
-nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
 nlp = spacy.load('en_core_web_sm')
 
