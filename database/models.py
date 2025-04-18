@@ -96,9 +96,13 @@ class Series(Model):
         Returns:
         list[str]: A list of tag names associated with this series.
         """
+        # check if self.tags_rel is iterable (im not talking about being a list):
+        if not hasattr(self, 'tags_rel') or not hasattr(self.tags_rel, '__iter__'):
+            return []
+
         # Compute a list of tags associated with this series
-        tags = [str(tag_rel.tag.tag) for tag_rel in
-                self.tags_rel]
+        tags = [str(tag_rel.tag.tag) for tag_rel in self.tags_rel if
+                hasattr(tag_rel, 'tag') and hasattr(tag_rel.tag, 'tag')]
         return tags
 
     class Meta:
