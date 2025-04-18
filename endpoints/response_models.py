@@ -1,9 +1,13 @@
+import datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from database.models import SubmissionStatus
 
 class MetadataTheme(BaseModel):
     primary: str
 
+class TagsResponse(BaseModel):
+    tags: List[Dict[int, str]]
 
 class ServerMetadataResponse(BaseModel):
     theme: MetadataTheme
@@ -17,6 +21,9 @@ class ServerMetadataResponse(BaseModel):
 class ItemExistsResponse(BaseModel):
     exists: bool
 
+class SeriesTagsResponse(BaseModel):
+    series_id: int
+    tags: List[str]
 
 class SeriesLookupResponse(BaseModel):
     isFound: bool
@@ -32,6 +39,13 @@ class StoryResponse(BaseModel):
     patreonusername: Optional[str] = ""
     cdn: str = ""
 
+class StoryReleaseResponse(BaseModel):
+    idstory: int
+    storyGlobalId: Optional[str] = None
+    release_date: datetime.datetime
+    exclude_from_rss: bool
+
+
 
 class StoryBasicModel(BaseModel):
     title: str
@@ -40,6 +54,7 @@ class StoryBasicModel(BaseModel):
     patreonusername: Optional[str]
     storyGlobalId: Optional[str]
     cdn: str
+    release_date: Optional[datetime.datetime] = None
 
 
 class StoriesResponse(BaseModel):
@@ -87,3 +102,37 @@ class WeeklyProgramResponse(BaseModel):
     status: str
     data: Optional[Dict[str, Any]]
     message: Optional[str] = None
+
+
+class StorySubmissionResponse(BaseModel):
+    idstorysubmission: int
+    title: Optional[str]
+    description: Optional[str]
+    author: Optional[str]
+    storyGlobalId: Optional[str]
+    series: SeriesBasicModel
+    submission_date: datetime.datetime
+    files_list: Optional[List[Dict[str, Any]]]  # JSON field for files
+    upload_links: Optional[List[Dict[str, Any]]]  # JSON field for upload links
+    status: SubmissionStatus  # Enum field for status
+    logs: Optional[str]
+    story_id: Optional[int] = None
+    story: Optional[StoryReleaseResponse] = None
+
+
+class SubmissionListResponse(BaseModel):
+    submissions: List[StorySubmissionResponse]
+    total: int
+    page: int
+    next_page: Optional[int]
+
+class SubmissionToStoryRequest(BaseModel):
+    release_date: Optional[str] = None
+    exclude_from_rss: bool = False
+
+class SubmissionToStoryResponse(BaseModel):
+    success: bool
+    message: str
+    story_id: Optional[int] = None
+    storyGlobalId: Optional[str] = None
+
