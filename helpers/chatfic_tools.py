@@ -24,7 +24,7 @@ def create_chatfic(story_text: str, story_key: str):
     # Create the output data structure
     output_data = {
         "format": "chatficbasic",
-        "version": "1",
+        "version": "1.1",
         "chatFic": {
             "globalidentifier": story_key,
             "serverslug": SERVER_METADATA["slug"],
@@ -33,6 +33,7 @@ def create_chatfic(story_text: str, story_key: str):
             "author": input_data["author"],
             "handles": input_data["handles"] if "handles" in input_data else {},
             "variables": input_data["variables"] if "variables" in input_data else {},
+            "apps": input_data["apps"] if "apps" in input_data else {},
             "modified": input_data["modified"],
             "episode": input_data["episode"] if "episode" in input_data and input_data["episode"] else 1,
             "characters": input_data["characters"]
@@ -49,18 +50,23 @@ def create_chatfic(story_text: str, story_key: str):
         first_message_index_per_page[page["id"]]=message_index
         last_chatroom_in_page = ""
         for message in page["messages"]:
-            last_chatroom_in_page=message["chatroom"]
+            last_chatroom_in_page=message["chatroom"] if "chatroom" in message else "-"
             bubble = {
                 "messageindex": message_index,
                 "message": message["message"],
                 "from": message["from"],
                 "side": int(message["side"]),
-                "chatroom": message["chatroom"]
+                "app": message["app"] if "app" in message else None,
+                "chatroom": last_chatroom_in_page,
             }
 
             # Check if multimedia is not null in the input message
             if "multimedia" in message and message["multimedia"] is not None:
                 bubble["multimedia"] = message["multimedia"].replace("media/","")
+            if "extra" in message and message["extra"] is not None:
+                bubble["extra"] = message["extra"]
+            if "type" in message and message["type"] is not None:
+                bubble["type"] = message["type"]
 
             output_data["bubble"].append(bubble)
             message_index += 1
@@ -75,8 +81,19 @@ def create_chatfic(story_text: str, story_key: str):
                         "options": [{"text":None,"to":options[0]["to"]}],
                         "from": temp_old_bubble["from"] if "from" in temp_old_bubble else None,
                         "side": temp_old_bubble["side"] if "side" in temp_old_bubble else 1,
-                        "chatroom": temp_old_bubble["chatroom"] if "chatroom" in temp_old_bubble else last_chatroom_in_page
+                        "chatroom": temp_old_bubble["chatroom"] if "chatroom" in temp_old_bubble else last_chatroom_in_page,
+                        "app":temp_old_bubble["app"]
                         }
+
+                    if "multimedia" in temp_old_bubble and temp_old_bubble[
+                        "multimedia"] is not None:
+                        output_data["bubble"][-1]["multimedia"] = temp_old_bubble["multimedia"]
+                    if "extra" in temp_old_bubble and temp_old_bubble[
+                        "extra"] is not None:
+                        output_data["bubble"][-1]["extra"] = temp_old_bubble["extra"]
+                    if "type" in temp_old_bubble and temp_old_bubble[
+                        "type"] is not None:
+                        output_data["bubble"][-1]["type"] = temp_old_bubble["type"]
                 elif len(options) > 0:
                     output_data["bubble"].append({
                         "messageindex": message_index,
@@ -84,7 +101,8 @@ def create_chatfic(story_text: str, story_key: str):
                         "options": [{"text":option["message"],"to":option["to"]} for option in options],
                         "from": None,
                         "side": 1,
-                        "chatroom": last_chatroom_in_page
+                        "chatroom": last_chatroom_in_page,
+                        "app":None
                         })
                     message_index += 1
 
