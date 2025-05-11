@@ -41,6 +41,10 @@ def create_chatfic(story_text: str, story_key: str):
         "bubble": []
     }
 
+    for app_key, app_dict in output_data["chatFic"]["apps"].items():
+        if "background" in app_dict:
+            app_dict["background"] = app_dict["background"].replace("media/", "")
+
     # Initialize a message index counter
     message_index = 1
     pages = input_data["pages"]
@@ -81,7 +85,7 @@ def create_chatfic(story_text: str, story_key: str):
                         "options": [{"text":None,"to":options[0]["to"]}],
                         "from": temp_old_bubble["from"] if "from" in temp_old_bubble else None,
                         "side": temp_old_bubble["side"] if "side" in temp_old_bubble else 1,
-                        "chatroom": temp_old_bubble["chatroom"] if "chatroom" in temp_old_bubble else last_chatroom_in_page,
+                        "chatroom": last_chatroom_in_page,
                         "app":temp_old_bubble["app"]
                         }
 
@@ -95,6 +99,7 @@ def create_chatfic(story_text: str, story_key: str):
                         "type"] is not None:
                         output_data["bubble"][-1]["type"] = temp_old_bubble["type"]
                 elif len(options) > 0:
+                    temp_old_bubble = output_data["bubble"][-1]
                     output_data["bubble"].append({
                         "messageindex": message_index,
                         "message": None,
@@ -102,7 +107,7 @@ def create_chatfic(story_text: str, story_key: str):
                         "from": None,
                         "side": 1,
                         "chatroom": last_chatroom_in_page,
-                        "app":None
+                        "app":temp_old_bubble["app"]
                         })
                     message_index += 1
 
