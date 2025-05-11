@@ -41,6 +41,10 @@ def create_chatfic(story_text: str, story_key: str):
         "bubble": []
     }
 
+    for app_key, app_dict in output_data["chatFic"]["apps"].items():
+        if "background" in app_dict:
+            app_dict["background"] = app_dict["background"].replace("media/", "")
+
     # Initialize a message index counter
     message_index = 1
     pages = input_data["pages"]
