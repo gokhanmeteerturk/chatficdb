@@ -114,7 +114,6 @@ async def get_story(storyGlobalId: str = Query("", description="Story's Global I
         )
 
 
-# create another endpoint that will print out server metadata:
 @router.get("/", response_model=ServerMetadataResponse, tags=["misc"])
 async def get_server_metadata() -> ServerMetadataResponse:
     """
