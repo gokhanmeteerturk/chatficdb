@@ -13,6 +13,7 @@ templates.env.globals['theme'] = settings.THEME
 
 @router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 async def setup_page(request: Request):
+    print(f"{settings.CHATFICLAB_BACKEND_URL}/register-chatficdb")
     if os.path.exists(settings.REGISTERED_PUBLIC_KEY_FILE):
         raise HTTPException(status_code=404, detail="Page Not Found")
     return templates.TemplateResponse("setup.html", {"request": request})
@@ -46,4 +47,5 @@ async def complete_setup():
             print(f"HTTP error: {e.status} - {e.message}")
             return JSONResponse(status_code=e.status, content={"error": f"HTTP error {e.status}"})
         except Exception as e:
+            raise e
             return JSONResponse(status_code=500, content={"error": str(e)})
