@@ -6,6 +6,8 @@ DATABASE_NAME=
 PORT=8000
 DEBUG=False
 
+CHATFICDB_SECRET_KEY=
+
 SERVER_NAME="Just Another"
 SERVER_SLUG=myserver
 SERVER_URL=mychatficserver.com

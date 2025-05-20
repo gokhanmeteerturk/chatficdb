@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ server.name }} - ChatficDB Setup{% endblock %}
+
+{% block content %}
+<div id="centered-div">
+<p>This will register your server with Chatfic Lab.</p>
+<div style="text-align: center;margin-top:12px;">
+<a class="btn" onclick="completeSetup()">COMPLETE SETUP</a>
+</div>
+<div id="result"></div>
+
+</div>
+<script>
+async function completeSetup() {
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerText = "Registering...";
+
+    const response = await fetch("/complete-setup", {
+        method: "POST"
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+        resultDiv.innerText = "✅ Registration Successful!";
+        console.log(data);
+    } else {
+        resultDiv.innerText = "❌ Error: " + (data.error || "Unknown error.");
+        console.error(data);
+    }
+}
+</script>
+{% endblock %}

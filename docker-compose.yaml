@@ -12,3 +12,5 @@ services:
     mem_limit: 1440m
     env_file:
       - .env
+    volumes:
+      - ./data:/app/data
