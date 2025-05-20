@@ -1,5 +1,6 @@
 import logging
 
+import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,11 +8,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from starlette.requests import Request
 from tortoise.contrib.fastapi import register_tortoise
+
 from helpers.design import templates
 
-from endpoints import stories, giveaways, submissions
+from endpoints import stories, giveaways, submissions, server_setup
 
 import settings
+import aiohttp
 
 app = FastAPI()
 
@@ -59,6 +62,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(stories.router)
 app.include_router(submissions.router)
 app.include_router(giveaways.router)
+app.include_router(server_setup.router)
 
 S3_LINK = settings.S3_LINK
 
@@ -79,6 +83,7 @@ async def show_submissions_page(request: Request):
     )
 
 
+
 register_tortoise(
     app,
     config=settings.TORTOISE_CONFIG,
@@ -86,3 +91,37 @@ register_tortoise(
     generate_schemas=True,
     add_exception_handlers=False,
 )
+
+
+@app.on_event("startup")
+async def startup_register_chatficdb():
+
+    if not settings.REGISTER_ON_STARTUP:
+        return
+
+    if os.path.exists(settings.REGISTERED_PUBLIC_KEY_FILE):
+        return  # Already registered
+
+    try:
+        payload = {
+            "secret": settings.SECRET_KEY,
+            "slug": settings.SERVER_METADATA["slug"],
+            "title": settings.SERVER_METADATA["name"],
+            "url": settings.SERVER_METADATA["url"],
+            "nsfw": settings.SERVER_METADATA["nsfw"]
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{settings.CHATFICLAB_BACKEND_URL}/register-chatficdb",
+                json=payload
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+            with open(settings.REGISTERED_PUBLIC_KEY_FILE, "w", encoding="utf-8") as f:
+                f.write(data["public_key"])
+
+            print("✅ Chatfic Server registered on startup.")
+    except Exception as e:
+        print(f"❌ Failed to register on startup: {e}")

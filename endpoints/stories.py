@@ -140,6 +140,7 @@ async def get_server_metadata() -> ServerMetadataResponse:
             tags=tags_data
         )
     except Exception as e:
+        raise e
         logging.error(e)
         return ServerMetadataResponse(theme=MetadataTheme(primary=""), tags={})
 
