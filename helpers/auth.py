@@ -17,9 +17,13 @@ This module is primarily used to validate API requests that require
 admin-level authentication.
 """
 from secrets import compare_digest
-from fastapi import HTTPException, Header
-from settings import ADMIN_AUTH_TOKEN
 
+import jwt
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from fastapi import HTTPException, Header
+from settings import ADMIN_AUTH_TOKEN, REGISTERED_PUBLIC_KEY_FILE, SERVER_METADATA
+
+_loaded_public_key = None  # module-level cache
 
 def validate_token(authorization: str = Header(..., convert_underscores=False)):
     if not str(authorization).startswith("Bearer "):
@@ -33,3 +37,27 @@ def validate_token(authorization: str = Header(..., convert_underscores=False)):
         raise HTTPException(status_code=401, detail="Invalid or missing token")
 
     return True
+
+def _load_public_key_once():
+    global _loaded_public_key
+    if _loaded_public_key is None:
+        with open(REGISTERED_PUBLIC_KEY_FILE, "rb") as f:
+            pem_public_loaded = f.read()
+        _loaded_public_key = load_pem_public_key(pem_public_loaded)
+    return _loaded_public_key
+
+def validate_and_decode_jwt(jwt_token: str):
+    loaded_public_key = _load_public_key_once()
+
+    try:
+        decoded = jwt.decode(
+            jwt_token,
+            key=loaded_public_key,
+            algorithms=["EdDSA"],
+            audience=SERVER_METADATA.get("slug")
+        )
+        print("\n✅ JWT verified! Payload:\n", decoded)
+        return decoded
+    except jwt.exceptions.InvalidTokenError as e:
+        print("❌ JWT verification failed:", str(e))
+        return None

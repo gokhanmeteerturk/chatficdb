@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from endpoints.response_models import StorySubmissionResponse, SubmissionListResponse, SubmissionToStoryRequest, SubmissionToStoryResponse
 from database.models import StorySubmission, Story_SubmissionIn_Pydantic, \
     Story_Submission_Pydantic, SubmissionStatus, Story
-from helpers.auth import validate_token
+from helpers.auth import validate_token, validate_and_decode_jwt
 from helpers.tasks import run_submission_preprocess, run_submission_postprocess
 from helpers.utils import create_s3_client
 from settings import S3_BUCKET
@@ -10,6 +10,14 @@ from botocore.exceptions import ClientError
 from typing import Optional, List
 from datetime import datetime
 router = APIRouter()
+
+@router.get("/validate")
+async def validate(token: str = Query(...)):
+    try:
+        decoded_payload = validate_and_decode_jwt(token)
+        return {"status": "valid", "payload": decoded_payload}
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 @router.post("/story_submissions", response_model=StorySubmissionResponse, dependencies=[Depends(validate_token)])
 async def create_story_submission(

@@ -1,6 +1,10 @@
+import base64
 import logging
 
 import os
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -119,9 +123,14 @@ async def startup_register_chatficdb():
                 response.raise_for_status()
                 data = await response.json()
 
-            with open(settings.REGISTERED_PUBLIC_KEY_FILE, "w", encoding="utf-8") as f:
-                f.write(data["public_key"])
-
+            reconstructed_public_key = Ed25519PublicKey.from_public_bytes(
+                base64.b64decode(data["public_key"]))
+            pem_public = reconstructed_public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            with open(settings.REGISTERED_PUBLIC_KEY_FILE, "wb") as f:
+                f.write(pem_public)
             print("✅ Chatfic Server registered on startup.")
     except Exception as e:
         print(f"❌ Failed to register on startup: {e}")
