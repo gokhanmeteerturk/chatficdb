@@ -1,4 +1,8 @@
+import base64
+
 import aiohttp
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -38,8 +42,14 @@ async def complete_setup():
 
                 data = await response.json()
 
-            with open(settings.REGISTERED_PUBLIC_KEY_FILE, "w", encoding="utf-8") as f:
-                f.write(data["public_key"])
+            reconstructed_public_key = Ed25519PublicKey.from_public_bytes(
+                base64.b64decode(data["public_key"]))
+            pem_public = reconstructed_public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            with open(settings.REGISTERED_PUBLIC_KEY_FILE, "wb") as f:
+                f.write(pem_public)
 
             return JSONResponse(content={"message": "Registration successful", "data": data})
 
