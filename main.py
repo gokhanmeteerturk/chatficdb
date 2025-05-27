@@ -6,7 +6,7 @@ import os
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -24,14 +24,6 @@ app = FastAPI()
 
 logging.basicConfig(level=logging.INFO)
 
-origins = ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 load_dotenv()
 
@@ -68,7 +60,28 @@ app.include_router(submissions.router)
 app.include_router(giveaways.router)
 app.include_router(server_setup.router)
 
+server_url = settings.SERVER_METADATA["url"]
+if server_url.endswith("/"):
+    server_url = server_url[:-1]
+if not server_url.startswith("https://"):
+    if not server_url.startswith("http://"):
+        server_url = "https://" + server_url
+
+origins = ["https://chatficlab.com", "https://api.chatficlab.com"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+)
+
+
 S3_LINK = settings.S3_LINK
+
+@app.options("/stories")
+async def preflight_stories():
+    return Response(status_code=204)
 
 @app.get("/submit", response_class=HTMLResponse, tags=["html"])
 async def show_submit_page(request: Request):
