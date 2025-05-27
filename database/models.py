@@ -141,6 +141,7 @@ class StorySubmission(Model):
     description = fields.CharField(max_length=45, null=True)
     story_text = fields.TextField(null=True)
     author = fields.CharField(max_length=45, null=True)
+    username = fields.CharField(max_length=45, null=False, default="admin")
     storyGlobalId = fields.CharField(max_length=45, null=True)
     series = fields.ForeignKeyField('models.Series',
                                     related_name='submissions')
@@ -174,6 +175,7 @@ class Story(Model):
     title = fields.CharField(max_length=45, null=True)
     description = fields.CharField(max_length=45, null=True)
     author = fields.CharField(max_length=45, null=True)
+    username = fields.CharField(max_length=45, null=False, default="admin")
     patreonusername = fields.CharField(max_length=45, null=True)
     storyGlobalId = fields.CharField(max_length=45, null=True)
     series = fields.ForeignKeyField('models.Series', related_name='stories')
@@ -231,6 +233,7 @@ Story_SubmissionIn_Pydantic = pydantic_model_creator(StorySubmission,
                                                               'submission_date',
                                                               'status',
                                                               'logs',
+                                                              'username',
                                                               'upload_links',
                                                               'story_id',
                                                               'storyGlobalId'),

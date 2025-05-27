@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query, Path, Depends
+from fastapi import APIRouter, HTTPException, Query, Path, Depends, Header
 from endpoints.response_models import StorySubmissionResponse, SubmissionListResponse, SubmissionToStoryRequest, SubmissionToStoryResponse
 from database.models import StorySubmission, Story_SubmissionIn_Pydantic, \
-    Story_Submission_Pydantic, SubmissionStatus, Story
-from helpers.auth import validate_token, validate_and_decode_jwt
+    Story_Submission_Pydantic, SubmissionStatus, Story, Series
+from helpers.auth import validate_and_decode_jwt, \
+    enforce_and_extract_username_or_admin
 from helpers.tasks import run_submission_preprocess, run_submission_postprocess
 from helpers.utils import create_s3_client
 from settings import S3_BUCKET
@@ -13,15 +14,17 @@ router = APIRouter()
 
 @router.get("/validate")
 async def validate(token: str = Query(...)):
-    try:
-        decoded_payload = validate_and_decode_jwt(token)
-        return {"status": "valid", "payload": decoded_payload}
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+    decoded_payload = validate_and_decode_jwt(token)
+    if decoded_payload is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-@router.post("/story_submissions", response_model=StorySubmissionResponse, dependencies=[Depends(validate_token)])
+    return {"status": "valid", "payload": decoded_payload}
+
+@router.post("/story_submissions", response_model=StorySubmissionResponse)
 async def create_story_submission(
-        story_submission: Story_SubmissionIn_Pydantic):
+        story_submission: Story_SubmissionIn_Pydantic,
+        authorization: Optional[str] = Header(None, convert_underscores=False)):
+    username = enforce_and_extract_username_or_admin(authorization)
     try:
         if "storybasic.json" not in [file.get("name","") for file in story_submission.files_list]:
             raise HTTPException(status_code=400,
@@ -33,6 +36,7 @@ async def create_story_submission(
 
         # Create a new story submission in the database
         new_submission = await StorySubmission.create(
+            username=username,
             **story_submission.dict())
 
         # Serialize the created submission
@@ -50,11 +54,22 @@ async def create_story_submission(
         raise HTTPException(status_code=500,
                             detail=f"Error creating story submission: {str(e)}")
 
-@router.get("/story_submissions/{submission_id}", response_model=StorySubmissionResponse, dependencies=[Depends(validate_token)])
-async def get_story_submission(submission_id: int):
+@router.get("/story_submissions/{submission_id}", response_model=StorySubmissionResponse)
+async def get_story_submission(submission_id: int,
+        authorization: Optional[str] = Header(None, convert_underscores=False)):
+    username = enforce_and_extract_username_or_admin(authorization)
     try:
+
         # Fetch the story submission from the database
-        submission = await StorySubmission.get_or_none(idstorysubmission=submission_id)
+        if username != "admin":
+            submission = await StorySubmission.get_or_none(
+                idstorysubmission=submission_id,
+                username=username
+                )
+        else:
+            submission = await StorySubmission.get_or_none(
+                idstorysubmission=submission_id
+                )
         if not submission:
             raise HTTPException(status_code=404, detail="Submission not found.")
 
@@ -66,13 +81,22 @@ async def get_story_submission(submission_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving story submission: {str(e)}")
 
-@router.post("/story_submissions/{submission_id}/register_upload", dependencies=[Depends(validate_token)])
-async def register_upload(submission_id: int):
+@router.post("/story_submissions/{submission_id}/register_upload")
+async def register_upload(submission_id: int,
+        authorization: Optional[str] = Header(None, convert_underscores=False)):
+    username = enforce_and_extract_username_or_admin(authorization)
     try:
+
         # Fetch the story submission from the database
-        submission = await StorySubmission.get_or_none(
-            idstorysubmission=submission_id
-        )
+        if username != "admin":
+            submission = await StorySubmission.get_or_none(
+                idstorysubmission=submission_id,
+                username=username
+            )
+        else:
+            submission = await StorySubmission.get_or_none(
+                idstorysubmission=submission_id
+            )
         if not submission:
             raise HTTPException(status_code=404,
                                 detail="Submission not found.")
@@ -120,18 +144,24 @@ async def register_upload(submission_id: int):
         raise HTTPException(status_code=500,
                             detail=f"Error registering upload: {str(e)}")
 
-@router.get("/story_submissions", response_model=SubmissionListResponse, dependencies=[Depends(validate_token)])
+@router.get("/story_submissions", response_model=SubmissionListResponse)
 async def list_submissions(
     page: int = Query(1, description="Page number, starting from 1"),
     filter_type: str = Query("with_story", description="Filter type: all, with_story, without_story"),
-    status: Optional[int] = Query(None, description="Filter by submission status")
+    status: Optional[int] = Query(None, description="Filter by submission status"),
+    authorization: Optional[str] = Header(None, convert_underscores=False)
 ):
+    username = enforce_and_extract_username_or_admin(authorization)
     try:
+
         per_page = 10
         skip = (page - 1) * per_page
 
         # Base query
-        query = StorySubmission.all().order_by("-submission_date")
+        if username == "admin":
+            query = StorySubmission.all().order_by("-submission_date")
+        else:
+            query = StorySubmission.filter(username=username).order_by("-submission_date")
 
         # Apply filters
         if filter_type == "without_story":
@@ -180,14 +210,25 @@ async def list_submissions(
             detail=f"Error fetching submissions: {str(e)}"
         )
 
-@router.post("/story_submissions/{submission_id}/convert", response_model=SubmissionToStoryResponse, dependencies=[Depends(validate_token)])
+@router.post("/story_submissions/{submission_id}/convert", response_model=SubmissionToStoryResponse)
 async def convert_submission_to_story(
     submission_id: int = Path(..., description="ID of submission to convert"),
-    conversion_data: SubmissionToStoryRequest = None
+    conversion_data: SubmissionToStoryRequest = None,
+    authorization: Optional[str] = Header(None, convert_underscores=False)
 ):
+    username = enforce_and_extract_username_or_admin(authorization)
     try:
         # Get the submission
-        submission = await StorySubmission.get_or_none(idstorysubmission=submission_id)
+        if username == "admin":
+            submission = await StorySubmission.get_or_none(
+                idstorysubmission=submission_id
+            )
+        else:
+            submission = await StorySubmission.get_or_none(
+                idstorysubmission=submission_id,
+                username=username
+            )
+
         if not submission:
             raise HTTPException(status_code=404, detail="Submission not found")
 
@@ -226,6 +267,7 @@ async def convert_submission_to_story(
             description=submission.description,
             author=submission.author,
             patreonusername=None,
+            username=username,
             storyGlobalId=submission.storyGlobalId,
             series_id=submission.series_id,
             release_date=release_date,
@@ -235,6 +277,13 @@ async def convert_submission_to_story(
         # Update the submission to link to the story
         submission.story = new_story
         await submission.save()
+
+        # Update series's episode count:
+        if submission.series_id:
+            series = await Series.get_or_none(idseries=submission.series_id)
+            if series:
+                series.episodes += 1
+                await series.save()
 
         return SubmissionToStoryResponse(
             success=True,
@@ -248,5 +297,5 @@ async def convert_submission_to_story(
         raise HTTPException(
             status_code=500,
             detail=f"Error converting submission to story: {str(e)}"
-        )
+        ) from e
 

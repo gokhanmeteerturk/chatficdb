@@ -20,7 +20,7 @@ ADMIN_AUTH_TOKEN = os.getenv("ADMIN_AUTH_TOKEN")
 REGISTER_ON_STARTUP = False
 SECRET_KEY = os.getenv('CHATFICDB_SECRET_KEY')
 
-CHATFICLAB_BACKEND_URL = "https://api.chatficlab.com"
+CHATFICLAB_BACKEND_URL = os.getenv('CHATFICLAB_BACKEND_URL',"https://api.chatficlab.com")
 REGISTERED_PUBLIC_KEY_FILE = os.getenv('REGISTERED_PUBLIC_KEY_FILE',"/app/data/registered_key.pem")
 
 SERVER_METADATA = {
