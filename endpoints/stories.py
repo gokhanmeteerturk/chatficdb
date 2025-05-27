@@ -25,7 +25,8 @@ from endpoints.response_models import ItemExistsResponse, StoryResponse, \
     LatestSeriesResponse, WeeklyProgramResponse, SeriesTagsResponse, \
     TagsResponse
 from helpers.utils import getUniqueRandomStoryKey
-from helpers.auth import validate_token  # Import validate_token
+from helpers.auth import validate_admin_token, \
+    validate_and_decode_jwt_from_bearer, enforce_specific_username_or_admin
 
 S3_LINK = settings.S3_LINK
 FEED_PATH = "/feed.xml"
@@ -34,11 +35,16 @@ router = APIRouter()
 
 CACHED_WEEKLY_PROGRAM_PATH = "./cached_program_weekly.json"
 logging.getLogger().setLevel(
-    logging.INFO if settings.DEBUG else logging.WARNING)
+    logging.INFO if settings.DEBUG else logging.WARNING
+)
 
 
 @router.get('/item', response_model=ItemExistsResponse, tags=["misc"])
-async def check_item_exists(item_id: str = Query("", description="Series ID")) -> ItemExistsResponse:
+async def check_item_exists(
+        item_id: str = Query(
+            "", description="Series ID"
+        )
+) -> ItemExistsResponse:
     """
     Simple endpoint to verify if a series exists.
     Returns 200 if exists, 404 if not.
@@ -60,17 +66,24 @@ async def check_item_exists(item_id: str = Query("", description="Series ID")) -
         raise
     except Exception as e:
         logging.error(f"Item check error: {e}")
-        raise HTTPException(status_code=500,
-                            detail="Error checking item") from e
+        raise HTTPException(
+            status_code=500,
+            detail="Error checking item"
+        ) from e
 
 
 @router.get("/story", response_model=StoryResponse, tags=["stories & series"])
-async def get_story(storyGlobalId: str = Query("", description="Story's Global ID")) -> StoryResponse:
+async def get_story(
+        storyGlobalId: str = Query(
+            "", description="Story's Global ID"
+        )
+) -> StoryResponse:
     try:
         if settings.SHOW_PUBLISHED_ONLY:
             story = models.Story.filter(
                 storyGlobalId=storyGlobalId,
-                release_date__lte=datetime.now()).limit(1)
+                release_date__lte=datetime.now()
+            ).limit(1)
         else:
             story = models.Story.filter(
                 storyGlobalId=storyGlobalId
@@ -145,9 +158,14 @@ async def get_server_metadata() -> ServerMetadataResponse:
         return ServerMetadataResponse(theme=MetadataTheme(primary=""), tags={})
 
 
-@router.get("/series/lookup", response_model=SeriesLookupResponse, tags=["stories & series"])
+@router.get(
+    "/series/lookup", response_model=SeriesLookupResponse,
+    tags=["stories & series"]
+)
 async def lookup_series_by_stories(
-        story_ids: List[str] = Query(None, description="List of storyGlobalId values")
+        story_ids: List[str] = Query(
+            None, description="List of storyGlobalId values"
+        )
 ) -> SeriesLookupResponse:
     """
     Endpoint to return seriesGlobalId for given storyGlobalId values.
@@ -155,7 +173,8 @@ async def lookup_series_by_stories(
     try:
         # Fetch all stories matching the provided storyGlobalId values
         stories = await models.Story.filter(
-            storyGlobalId__in=story_ids).prefetch_related("series")
+            storyGlobalId__in=story_ids
+        ).prefetch_related("series")
 
         if not stories:
             return SeriesLookupResponse(
@@ -182,38 +201,79 @@ async def lookup_series_by_stories(
         )
 
 
-@router.get("/stories", response_model=StoriesResponse,
-            tags=["stories & series"])
+@router.get(
+    "/stories", response_model=StoriesResponse,
+    tags=["stories & series"]
+)
 async def get_stories(
-        page: NonNegativeInt = Query(1, description="Page number,"
-                                                    " default: 1"),
+        page: NonNegativeInt = Query(
+            1, description="Page number,"
+                           " default: 1"
+        ),
         seriesGlobalId: Optional[str] = Query(
             None, description="Series global id"
         ),
         from_series_of_story: Optional[str] = Query(
             None, description="Story Global ID for series lookup"
         ),
-        sort_by: str = Query("date", description="Sort by 'date', '-date' (reverse date), or 'name'"),
-        tags_required: List[str] = Query([], description="Required tag "
-                                                         "'names'. These are "
-                                                         "limited to 3 tags."),
-        include_upcoming: NonNegativeInt = Query(0,
-                                                 description="Include upcoming"
-                                                             " releases"),
-        authorization: Optional[str] = Header(None, convert_underscores=False)
+        sort_by: str = Query(
+            "date",
+            description="Sort by 'date', '-date' (reverse date), or 'name'"
+        ),
+        tags_required: List[str] = Query(
+            [], description="Required tag "
+                            "'names'. These are "
+                            "limited to 3 tags."
+        ),
+        include_upcoming: NonNegativeInt = Query(
+            0,
+            description="Include upcoming"
+                        " releases"
+        ),
+        authorization: Optional[str] = Header(
+            None,
+            convert_underscores=False,
+        ),
+        username: Optional[str] = Query(
+            None,
+            description="Filter stories by "
+                        "username. Only admin & "
+                        "that specific user can use this."
+        ),
 ) -> StoriesResponse:
-
     per_page = 60
+
+    # this if and its else could be just two lines, but for readability:
+    if (include_upcoming and include_upcoming != 0):
+        if username:
+            # users can only see their own drafts.
+            # so this has to be either the creator himself or the admin.
+            enforce_specific_username_or_admin(authorization, username)
+        else:
+            # only admins can include_drafts for all records.
+            # if admin, pass. if not the admin, raise:
+            enforce_specific_username_or_admin(authorization, None)
+    else:
+        # even if include_upcoming is not requested,
+        # users can only filter stories for themselves(unless it is the admin).
+        if username:
+            # so this has to be either the user himself or the admin.
+            enforce_specific_username_or_admin(authorization, username)
+
+    # if include_drafts == False, anyone can filter series by creator
     try:
         skip = (page - 1) * per_page
         limit = per_page
         stories_query = models.Story.all()
 
-        if include_upcoming and include_upcoming != 0:
-            validate_token(authorization)  # Validate token if include_upcoming is true
-        else:
+        if not (include_upcoming and include_upcoming != 0):
             stories_query = stories_query.filter(
                 release_date__lte=datetime.now()
+            )
+
+        if username:
+            stories_query = stories_query.filter(
+                username=username
             )
 
         if seriesGlobalId:
@@ -223,7 +283,8 @@ async def get_stories(
         else:
             if from_series_of_story:
                 stories = await models.Story.filter(
-                    storyGlobalId=from_series_of_story).limit(1)
+                    storyGlobalId=from_series_of_story
+                ).limit(1)
                 series_id = None
                 for story in stories:
                     series_id = story.series_id
@@ -283,7 +344,8 @@ async def get_stories(
 async def get_landing():
     """
     Endpoint to get server metadata along with latest series.
-    Good for landing pages. Chatfic Lab's /cfs-slug server pages use this endpoint.
+    Good for landing pages. Chatfic Lab's /cfs-slug server pages use this
+    endpoint.
 
     Returns:
         The server metadata as a dictionary and latest series as a
@@ -310,6 +372,7 @@ async def get_landing():
     meta["series"] = series
     return meta
 
+
 @router.get("/tags", response_model=TagsResponse, tags=["tags"])
 async def get_tags():
     """
@@ -323,40 +386,74 @@ async def get_tags():
         logging.error(f"Error retrieving tags: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving tags")
 
-@router.get("/series", response_model=SeriesResponse, tags=["stories & series"])
+
+@router.get(
+    "/series", response_model=SeriesResponse, tags=["stories & series"]
+)
 async def get_series(
-        page: NonNegativeInt = Query(1, description="Page number,"
-                                                    " default: 1"),
+        page: NonNegativeInt = Query(
+            1, description="Page number,"
+                           " default: 1"
+        ),
         storyGlobalId: Optional[str] = Query(
             None, description="Story Global ID for series lookup"
         ),
-        sort_by: str = Query("new",
-                             description="Sort by 'new' or 'name"),
-        tags_required: List[str] = Query([],
-                                         description="Required tags"),
-        include_drafts: bool = Query(False, description="Include series with unpublished or no stories"),
-        authorization: Optional[str] = Header(None, convert_underscores=False)
+        sort_by: str = Query(
+            "new",
+            description="Sort by 'new' or 'name"
+        ),
+        tags_required: List[str] = Query(
+            [],
+            description="Required tags"
+        ),
+        include_drafts: bool = Query(
+            False,
+            description="Include series with "
+                        "unpublished or no stories"
+        ),
+        authorization: Optional[str] = Header(None, convert_underscores=False),
+        creator: Optional[str] = Query(
+            None,
+            description="Filter series by creator "
+                        "username. Only admin & "
+                        "creator can use this."
+        ),
 ):
     per_page = 60
     page = min(page, 20)
+    if include_drafts:
+        # below check is for readability
+        if creator:
+            # creator can only see their own drafts.
+            # so this has to be either the creator himself or the admin.
+            enforce_specific_username_or_admin(authorization, creator)
+        else:
+            # only admins can include_drafts for all records.
+            # if admin, pass. if not the admin, raise:
+            enforce_specific_username_or_admin(authorization, None)
+
+    # if include_drafts == False, anyone can filter series by creator
 
     try:
         skip = (page - 1) * per_page
         limit = per_page
         series_query = None
 
-        if include_drafts:
-            validate_token(authorization)  # Validate token if include_drafts is true
-
         if storyGlobalId:
             stories = await models.Story.filter(
-                storyGlobalId=storyGlobalId).limit(1)
+                storyGlobalId=storyGlobalId
+            ).limit(1)
             for story in stories:
                 series_query = models.Series.filter(
-                    idseries=story.series_id).all()
-
+                    idseries=story.series_id
+                ).all()
         else:
             series_query = models.Series.all()
+
+        if creator:
+            series_query = series_query.filter(
+                creator=creator
+            )
 
         if tags_required:
             tags_required = tags_required[:3]
@@ -365,14 +462,21 @@ async def get_series(
             )
 
         if not include_drafts:
-            series_query = series_query.filter(stories__idstory__in=Subquery(
-                models.Story.filter(release_date__lte=datetime.now()).values(
-                    "idstory"))).distinct()
+            series_query = series_query.filter(
+                stories__idstory__in=Subquery(
+                    models.Story.filter(
+                        release_date__lte=datetime.now()
+                    ).values(
+                        "idstory"
+                    )
+                )
+            ).distinct()
 
         # If tortoise orm's Count can introduce "filter" in the future,
         # this will be used instead:
         # series_query = series_query.annotate(
-        #     story_count=Count("stories", filter=Q(release_date__lte=datetime.now()))
+        #     story_count=Count("stories", filter=Q(
+        #     release_date__lte=datetime.now()))
         # ).filter(story_count__gte=1)
 
         if sort_by == "new":
@@ -414,8 +518,22 @@ async def get_series(
             series=[]
         )
 
+
 @router.post("/series", response_model=SeriesBasicModel)
-async def create_series(series: SeriesIn_Pydantic) -> SeriesBasicModel:
+async def create_series(series: SeriesIn_Pydantic,
+                        authorization: Optional[str] = Header(
+                            None,
+                            convert_underscores=False
+                        )
+                        ) -> SeriesBasicModel:
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header is required"
+        )
+    else:
+        # admins can choose any series.creator value and this will pass:
+        enforce_specific_username_or_admin(authorization, series.creator)
     random_story_key = getUniqueRandomStoryKey()
     series_global_id = f"{random_story_key[4:]}{random_story_key[:4]}"
     try:
@@ -426,25 +544,33 @@ async def create_series(series: SeriesIn_Pydantic) -> SeriesBasicModel:
             episodes=0
         )
 
-        new_series_pydantic = await models.SeriesWithRels_Pydantic.from_tortoise_orm(new_series)
+        new_series_pydantic = await (
+            models.SeriesWithRels_Pydantic.from_tortoise_orm(
+                new_series
+            ))
 
         return SeriesBasicModel(**new_series_pydantic.model_dump())
     except Exception as e:
         logging.error(f"Error creating series: {e}")
         raise HTTPException(status_code=500, detail="Error creating series")
 
+
 @router.put("/series/{series_id}/tags", response_model=SeriesTagsResponse)
 async def add_tags_to_series(series_id: int, tags: List[str]):
     try:
         series = await models.Series.get(idseries=series_id).prefetch_related(
-            "tags_rel__tag")
+            "tags_rel__tag"
+        )
 
         # Fetch all tags from the database in a single query
         submitted_valid_tags = await models.Tag.filter(tag__in=tags).all()
-        submitted_valid_tag_names = {str(tag.tag) for tag in submitted_valid_tags}
+        submitted_valid_tag_names = {str(tag.tag) for tag in
+                                     submitted_valid_tags}
 
         if not submitted_valid_tag_names:
-            raise HTTPException(status_code=400, detail="No valid tags provided")
+            raise HTTPException(
+                status_code=400, detail="No valid tags provided"
+            )
 
         # Get the current tags associated with the series
         current_tags = {str(tag_rel.tag.tag) for tag_rel in series.tags_rel}
@@ -461,23 +587,43 @@ async def add_tags_to_series(series_id: int, tags: List[str]):
 
         # Add new tags
         if tags_to_add:
-            tag_objects = [tag for tag in submitted_valid_tags if tag.tag in tags_to_add]
-            await models.SeriesTagsRel.bulk_create([
-                models.SeriesTagsRel(series=series, tag=tag) for tag in tag_objects
-            ])
+            tag_objects = [tag for tag in submitted_valid_tags if
+                           tag.tag in tags_to_add]
+            await models.SeriesTagsRel.bulk_create(
+                [
+                    models.SeriesTagsRel(series=series, tag=tag) for tag in
+                    tag_objects
+                ]
+            )
 
-        return SeriesTagsResponse(series_id=series_id, tags=list(submitted_valid_tag_names))
+        return SeriesTagsResponse(
+            series_id=series_id, tags=list(submitted_valid_tag_names)
+        )
     except Exception as e:
         logging.error("Error adding tags: %s", e)
         raise HTTPException(status_code=500, detail="Error adding tags")
 
-@router.get("/latest", response_model=LatestSeriesResponse, tags=["stories & series"])
+
+@router.get(
+    "/latest", response_model=LatestSeriesResponse, tags=["stories & series"]
+)
 @atomic()
 async def get_latest_series(
-        offset: NonNegativeInt = Query(0,
-                                       description="Offset, default: 0"),
-        exclude_tags: List[PositiveInt] = Query(None, description="Tag ids to exclude, optional. You can retrieve them from '/'"),
-        include_tags: List[PositiveInt] = Query(None, description="Tag ids to include, optional. You can retrieve them from '/'")) -> LatestSeriesResponse:
+        offset: NonNegativeInt = Query(
+            0,
+            description="Offset, default: 0"
+        ),
+        exclude_tags: List[PositiveInt] = Query(
+            None,
+            description="Tag ids to exclude, optional. You can retrieve them "
+                        "from '/'"
+        ),
+        include_tags: List[PositiveInt] = Query(
+            None,
+            description="Tag ids to include, optional. You can retrieve them"
+                        " from '/'"
+        )
+) -> LatestSeriesResponse:
     """
     Endpoint to get latest series (no metadata).
 
@@ -507,20 +653,56 @@ async def get_latest_series(
                             # in_text = ','.join(str(x) for x in include_tags)
                             all_text = ','.join(str(x) for x in all_tags)
 
-                            sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude, COUNT(*) AS all_count FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ( {all_text} ) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING x_clude = 0 AND all_count = ( x_clude + {len(include_tags)} ) ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                            sql = f"""(SELECT series_id FROM ( SELECT 
+                            sr.series_id, SUM(CASE WHEN sr.tag_id IN (
+{ex_text}) THEN 1 ELSE 0 END) AS x_clude, COUNT(*) AS all_count FROM ( 
+SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st 
+WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS 
+stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ( {all_text} ) 
+ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY 
+sr.series_id HAVING x_clude = 0 AND all_count = ( x_clude + 
+{len(include_tags)} ) ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
                         else:
                             ex_text = ','.join(str(x) for x in exclude_tags)
-                            sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, SUM(CASE WHEN sr.tag_id IN ({ex_text}) THEN 1 ELSE 0 END) AS x_clude FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING x_clude = 0 ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                            sql = f"""(SELECT series_id FROM ( SELECT 
+                            sr.series_id, SUM(CASE WHEN sr.tag_id IN (
+{ex_text}) THEN 1 ELSE 0 END) AS x_clude FROM ( SELECT sr.*, ( SELECT MIN(
+st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = 
+sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM 
+series_tags_rel AS sr ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT 
+NULL GROUP BY sr.series_id HAVING x_clude = 0 ORDER BY sr.id DESC LIMIT 10 
+OFFSET {offset}) AS ss)"""
                     else:
                         if len(include_tags) == 1:
-                            sql = f"""(SELECT series_id FROM (SELECT sr.series_id FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id = {include_tags[0]} ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                            sql = f"""(SELECT series_id FROM (SELECT 
+                            sr.series_id FROM ( SELECT sr.*, ( SELECT MIN(
+                            st.idstory) AS stories_aired FROM stories AS st 
+                            WHERE st.series_id = sr.series_id AND 
+                            st.release_date < NOW() LIMIT 1) AS 
+                            stories_aired FROM series_tags_rel AS sr WHERE 
+                            sr.tag_id = {include_tags[0]} ORDER BY NULL) AS 
+                            sr WHERE sr.stories_aired IS NOT NULL GROUP BY 
+                            sr.series_id ORDER BY sr.id DESC LIMIT 10 OFFSET 
+{offset}) AS ss)"""
                         else:
                             in_text = ','.join(str(x) for x in include_tags)
-                            sql = f"""(SELECT series_id FROM ( SELECT sr.series_id, COUNT(*) AS total FROM ( SELECT sr.*, ( SELECT MIN(st.idstory) AS stories_aired FROM stories AS st WHERE st.series_id = sr.series_id AND st.release_date < NOW() LIMIT 1) AS stories_aired FROM series_tags_rel AS sr WHERE sr.tag_id IN ({in_text}) ORDER BY NULL) AS sr WHERE sr.stories_aired IS NOT NULL GROUP BY sr.series_id HAVING total = {len(include_tags)} ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS ss)"""
+                            sql = f"""(SELECT series_id FROM ( SELECT 
+                            sr.series_id, COUNT(*) AS total FROM ( SELECT 
+                            sr.*, ( SELECT MIN(st.idstory) AS stories_aired 
+                            FROM stories AS st WHERE st.series_id = 
+                            sr.series_id AND st.release_date < NOW() LIMIT 
+                            1) AS stories_aired FROM series_tags_rel AS sr 
+                            WHERE sr.tag_id IN ({in_text}) ORDER BY NULL) AS 
+                            sr WHERE sr.stories_aired IS NOT NULL GROUP BY 
+                            sr.series_id HAVING total = {len(include_tags)} 
+                            ORDER BY sr.id DESC LIMIT 10 OFFSET {offset}) AS 
+                            ss)"""
 
                     queryset = models.Series.filter(
-                        idseries__in=RawSQL(sql)).order_by(
-                        "-idseries").limit(10)
+                        idseries__in=RawSQL(sql)
+                    ).order_by(
+                        "-idseries"
+                    ).limit(10)
 
                 series = await models.SeriesWithRels_Pydantic.from_queryset(
                     queryset
@@ -544,9 +726,12 @@ async def get_latest_series(
                 if "Packet sequence number wrong" in str(e) and attempt < 2:
                     # Log the retry attempt
                     logging.warning(
-                        f"Retrying query due to sequence number error (attempt {attempt + 1})")
+                        f"Retrying query due to sequence number error ("
+                        f"attempt {attempt + 1})"
+                    )
                     await asyncio.sleep(
-                        0.5 * (attempt + 1))  # Exponential backoff
+                        0.5 * (attempt + 1)
+                    )  # Exponential backoff
                     continue
                 raise
     except Exception as e:
@@ -557,8 +742,11 @@ async def get_latest_series(
             series=[]
         )
 
-@router.get("/program", response_model=WeeklyProgramResponse,
-            tags=["misc"])
+
+@router.get(
+    "/program", response_model=WeeklyProgramResponse,
+    tags=["misc"]
+)
 async def get_current_week_program() -> WeeklyProgramResponse:
     """
     Get the current weekly program.
@@ -567,7 +755,8 @@ async def get_current_week_program() -> WeeklyProgramResponse:
         WeeklyProgramResponse: The current weekly program.
 
     """
-    # using FileResponse wouldn't help when we switch to a proper cache. So we'll load the json instead:
+    # using FileResponse wouldn't help when we switch to a proper cache. So
+    # we'll load the json instead:
     cached_program = await get_cached_weekly_program()
 
     if not cached_program:
@@ -617,14 +806,16 @@ async def build_weekly_program():
         }
         for story in current_week_stories:
             series_name = story.series.name if story.series else None
-            series_global_id = story.series.seriesGlobalId if story.series else None
+            series_global_id = story.series.seriesGlobalId if story.series \
+                else None
 
             story_release_date_minute = story.release_date.minute
             rounded_release_date = story.release_date + timedelta(
                 minutes=(
                                 30 - story_release_date_minute % 30
                         ) % 30
-            ) if story_release_date_minute != 0 and story_release_date_minute != 30 else story.release_date
+            ) if (story_release_date_minute != 0 and
+                  story_release_date_minute != 30) else story.release_date
 
             # Check if the story is released
             if rounded_release_date <= datetime.now(pytz.utc):
@@ -632,17 +823,20 @@ async def build_weekly_program():
             else:
                 story_global_id = None
 
-            response_data["stories"].append({
-                "idstory": story.idstory,
-                "title": story.title,
-                "description": story.description,
-                "release_date": rounded_release_date.strftime(
-                    "%Y-%m-%dT%H:%M:00Z"),
-                # "release_date": story.release_date,
-                "storyGlobalId": story_global_id,
-                "series_name": series_name,
-                "seriesGlobalId": series_global_id
-            })
+            response_data["stories"].append(
+                {
+                    "idstory": story.idstory,
+                    "title": story.title,
+                    "description": story.description,
+                    "release_date": rounded_release_date.strftime(
+                        "%Y-%m-%dT%H:%M:00Z"
+                    ),
+                    # "release_date": story.release_date,
+                    "storyGlobalId": story_global_id,
+                    "series_name": series_name,
+                    "seriesGlobalId": series_global_id
+                }
+            )
 
         with open(CACHED_WEEKLY_PROGRAM_PATH, 'w', encoding='utf-8') as f:
             json.dump(response_data, f, ensure_ascii=False, default=str)
@@ -676,9 +870,11 @@ async def build_rss_feed():
     recent_stories = await models.Story.filter(
         release_date__lte=datetime.now(),
         exclude_from_rss=False
-    ).order_by('-release_date').limit(5).prefetch_related('series',
-                                                          'series__tags_rel',
-                                                          'series__tags_rel__tag')
+    ).order_by('-release_date').limit(5).prefetch_related(
+        'series',
+        'series__tags_rel',
+        'series__tags_rel__tag'
+    )
 
     server_name = settings.SERVER_METADATA.get("name", "")
     server_url = settings.SERVER_METADATA.get("url", "")
@@ -693,11 +889,13 @@ async def build_rss_feed():
     for story in recent_stories:
         feed.add_item(
             title=story.title,
-            link=f"https://chatficlab.com/cfs-{server_slug}/story-{story.storyGlobalId}",
+            link=f"https://chatficlab.com/cfs-{server_slug}/story-"
+                 f"{story.storyGlobalId}",
             unique_id=f"{story.storyGlobalId}",
             author_name=story.author,
             categories=tuple(story.series.tagList()),
-            author_link=f"https://patreon.com/{story.patreonusername}" if story.patreonusername else "https://chatficlab.com",
+            author_link=f"https://patreon.com/{story.patreonusername}" if
+            story.patreonusername else "https://chatficlab.com",
             description=story.description,
             pubdate=story.release_date,
         )
@@ -708,13 +906,15 @@ async def build_rss_feed():
         rss_file.flush()
         os.fsync(rss_file)
 
+
 @router.on_event("startup")
 @repeat_every(seconds=60)  # 1 minute
 async def startup_event() -> None:
     now = datetime.now()
     if now.minute in [1, 31]:
         logging.info(
-            "Rebuilding weekly program for minute: {}".format(now.minute))
+            "Rebuilding weekly program for minute: {}".format(now.minute)
+        )
         await build_weekly_program()
     elif now.minute in [4, 34]:
         logging.info("Rebuilding rss feed for minute: {}".format(now.minute))

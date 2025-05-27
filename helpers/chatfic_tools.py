@@ -45,10 +45,10 @@ def create_chatfic(story_text: str, story_key: str):
         if "background" in app_dict:
             app_dict["background"] = app_dict["background"].replace("media/", "")
 
-    # Initialize a message index counter
+    # Initializing a message index counter
     message_index = 1
     pages = input_data["pages"]
-    # Iterate through the pages and messages in the input data
+    # Iterating through the pages and messages in the input data
     first_message_index_per_page = {}
     for page in pages:
         first_message_index_per_page[page["id"]]=message_index
@@ -64,7 +64,7 @@ def create_chatfic(story_text: str, story_key: str):
                 "chatroom": last_chatroom_in_page,
             }
 
-            # Check if multimedia is not null in the input message
+            # Checking if multimedia is not null in the input message
             if "multimedia" in message and message["multimedia"] is not None:
                 bubble["multimedia"] = message["multimedia"].replace("media/","")
             if "extra" in message and message["extra"] is not None:
@@ -111,7 +111,7 @@ def create_chatfic(story_text: str, story_key: str):
                         })
                     message_index += 1
 
-    # fix options: change page id to page["messages"][0]'s index.
+    # fixing options: changing page id to page["messages"][0]'s index.
     for message in output_data["bubble"]:
         if "options" in message and message["options"]:
             for option in message["options"]:
