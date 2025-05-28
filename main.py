@@ -67,7 +67,7 @@ if not server_url.startswith("https://"):
     if not server_url.startswith("http://"):
         server_url = "https://" + server_url
 
-origins = ["https://chatficlab.com", "https://api.chatficlab.com"]
+origins = ["https://chatficlab.com", "https://api.chatficlab.com", server_url]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
