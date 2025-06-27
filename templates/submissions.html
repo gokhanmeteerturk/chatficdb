@@ -238,9 +238,9 @@ dayElement.setAttribute("data-bs-title", `${story.title} (${story.storyGlobalId}
                     <option value="60">Processed</option>
                 </select>
                 <select id="filter-type" class="form-select w-auto d-inline-block me-2">
+                    <option value="all">All</option>
                     <option value="with_story">With Story</option>
                     <option value="without_story">Without Story</option>
-                    <option value="all">All</option>
                 </select>
                 <button id="apply-filters-btn" class="btn btn-secondary">Apply Filters</button>
             </div>
@@ -717,16 +717,21 @@ dayElement.setAttribute("data-bs-title", `${story.title} (${story.storyGlobalId}
         }
 
         async function createNewSeries() {
+            const token = localStorage.getItem(tokenKey); // Retrieve the token
             const name = document.getElementById("series-name").value.trim();
             const creator = document.getElementById("series-creator").value.trim();
             if (!name || !creator) return;
 
             try {
-                const response = await axios.post(seriesUrl, { name, creator });
+                const response = await axios.post(seriesUrl, { name, creator }, {
+                    headers: { Authorization: `Bearer ${token}` } // Add Authorization header
+                });
                 const seriesId = response.data.idseries;
 
                 if (selectedTags.length > 0) {
-                    await axios.put(`${seriesUrl}/${seriesId}/tags`, selectedTags);
+                    await axios.put(`${seriesUrl}/${seriesId}/tags`, selectedTags, {
+                        headers: { Authorization: `Bearer ${token}` } // Add Authorization header
+                    });
                 }
 
                 const modal = bootstrap.Modal.getInstance(document.getElementById("new-series-modal"));

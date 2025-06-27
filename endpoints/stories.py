@@ -11,7 +11,8 @@ from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi_utilities import repeat_every
 from pydantic.types import PositiveInt, NonNegativeInt
 from starlette.responses import FileResponse
-from tortoise.exceptions import OperationalError
+from tortoise.exceptions import OperationalError, DoesNotExist, \
+    MultipleObjectsReturned
 # import Q from tortoise orm:
 from tortoise.expressions import Subquery, RawSQL
 from tortoise.transactions import atomic
@@ -556,11 +557,36 @@ async def create_series(series: SeriesIn_Pydantic,
 
 
 @router.put("/series/{series_id}/tags", response_model=SeriesTagsResponse)
-async def add_tags_to_series(series_id: int, tags: List[str]):
+async def add_tags_to_series(series_id: int,
+                             tags: List[str],
+                             authorization: Optional[str] = Header(
+                                 None, convert_underscores=False
+                                 )
+                             ):
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header is required"
+        )
+
     try:
         series = await models.Series.get(idseries=series_id).prefetch_related(
             "tags_rel__tag"
         )
+    except DoesNotExist as e:
+        raise HTTPException(
+            status_code=404,
+            detail="Series not found"
+        )
+    except MultipleObjectsReturned as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Multiple series found with the same ID"
+        )
+
+    # Enforce authorization for the series creator or admin
+    enforce_specific_username_or_admin(authorization, series.creator)
+    try:
 
         # Fetch all tags from the database in a single query
         submitted_valid_tags = await models.Tag.filter(tag__in=tags).all()
